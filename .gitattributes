@@ -1,0 +1,4 @@
+# Normalise line endings so shell scripts work inside Linux containers when edited on Windows.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
