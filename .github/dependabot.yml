@@ -1,0 +1,8 @@
+version: 2
+updates:
+  # pip (/backend) and npm (/frontend) entries are added once those folders exist.
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: develop
+    schedule:
+      interval: weekly
