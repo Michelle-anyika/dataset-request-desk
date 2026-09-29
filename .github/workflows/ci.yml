@@ -23,7 +23,7 @@ jobs:
       backend: ${{ steps.check.outputs.backend }}
       frontend: ${{ steps.check.outputs.frontend }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - id: check
         run: |
           echo "backend=$([ -f backend/manage.py ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
@@ -55,7 +55,7 @@ jobs:
       DJANGO_SECRET_KEY: ci-only-not-a-secret
       DJANGO_DEBUG: "false"
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
@@ -85,7 +85,7 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: "22"
