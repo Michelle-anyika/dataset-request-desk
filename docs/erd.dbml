@@ -1,0 +1,162 @@
+// Dataset Request Desk - data model
+// Paste into https://dbdiagram.io to render the ERD.
+// Notes on things DBML cannot express (partial unique index, CHECKs) are inline.
+
+Project dataset_request_desk {
+  database_type: 'PostgreSQL'
+  Note: 'Internal platform for robotics dataset requests. Django + PostgreSQL.'
+}
+
+Enum user_role {
+  client
+  operator
+  admin
+}
+
+Enum episode_quality {
+  good
+  usable
+  bad
+}
+
+Enum request_status {
+  submitted
+  in_progress
+  delivered
+  accepted
+  rejected
+}
+
+Enum import_status {
+  running
+  completed
+  failed
+}
+
+Table users {
+  id uuid [pk]
+  email varchar(254) [unique, not null, note: 'stored lower-cased; used as login']
+  password varchar(128) [not null, note: 'Django PBKDF2 hash, never plain text']
+  full_name varchar(150) [not null]
+  organisation varchar(150) [note: 'clients only, e.g. Acme Robotics']
+  role user_role [not null, default: 'client']
+  is_active boolean [not null, default: true, note: 'deactivate instead of delete']
+  last_login timestamptz
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    role
+  }
+}
+
+Table robots {
+  id varchar(32) [pk, note: 'natural key: arm-01, mobile-01, ...']
+  kind varchar(32) [note: 'arm / mobile / humanoid']
+  is_active boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+
+  Note: 'Known robots. Import rejects rows whose robot_id is not here.'
+}
+
+Table episodes {
+  id bigint [pk, increment, note: 'bigint, not uuid: 5M+ rows, smaller indexes']
+  episode_id varchar(32) [unique, not null, note: 'natural key from the recording system, normalised to upper-case']
+  robot_id varchar(32) [not null, ref: > robots.id]
+  task_name varchar(120) [not null, note: 'normalised: trimmed, single spaces, lower-case']
+  recorded_at timestamptz [not null, note: 'stored in UTC']
+  duration_seconds integer [not null, note: 'CHECK (duration_seconds > 0)']
+  operator_name varchar(100)
+  quality episode_quality [not null]
+  import_batch_id bigint [ref: > import_batches.id, note: 'batch that last created/updated this row']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (recorded_at, robot_id) [name: 'ix_episodes_recorded_robot', note: 'analytics: per day per robot']
+    (quality, task_name) [name: 'ix_episodes_quality_task', note: 'analytics top tasks + operator filters']
+  }
+}
+
+Table import_batches {
+  id bigint [pk, increment]
+  file_name varchar(255) [not null]
+  file_sha256 char(64) [not null, note: 'lets us tell the user this exact file was imported before']
+  uploaded_by uuid [not null, ref: > users.id]
+  status import_status [not null, default: 'running']
+  total_rows integer [not null, default: 0]
+  created_count integer [not null, default: 0]
+  updated_count integer [not null, default: 0]
+  unchanged_count integer [not null, default: 0]
+  skipped_count integer [not null, default: 0]
+  started_at timestamptz [not null, default: `now()`]
+  finished_at timestamptz
+
+  Note: 'One row per import run. Re-running the same file => 0 created, N unchanged.'
+}
+
+Table import_row_issues {
+  id bigint [pk, increment]
+  import_batch_id bigint [not null, ref: > import_batches.id]
+  row_number integer [not null, note: 'line number in the CSV, for humans']
+  episode_id varchar(64) [note: 'raw value, may be blank']
+  severity varchar(16) [not null, note: 'skipped | fixed (value was normalised)']
+  reason_code varchar(50) [not null, note: 'e.g. missing_episode_id, unknown_robot, invalid_date, duplicate_in_file']
+  message text [not null]
+  raw_row jsonb [note: 'original values, for debugging']
+
+  indexes {
+    import_batch_id
+  }
+}
+
+Table dataset_requests {
+  id uuid [pk, note: 'uuid: not guessable in URLs (defence in depth, auth still enforced)']
+  client_id uuid [not null, ref: > users.id]
+  task_name varchar(120) [not null, note: 'normalised the same way as episodes.task_name']
+  episodes_requested integer [not null, note: 'CHECK (episodes_requested > 0)']
+  deadline date [not null]
+  notes text
+  status request_status [not null, default: 'submitted']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (client_id, status) [note: 'client "my requests" list']
+    (status, deadline) [note: 'operator queue']
+  }
+}
+
+Table request_status_events {
+  id bigint [pk, increment]
+  request_id uuid [not null, ref: > dataset_requests.id]
+  from_status request_status [note: 'NULL for the initial submitted event']
+  to_status request_status [not null]
+  changed_by uuid [not null, ref: > users.id]
+  changed_at timestamptz [not null, default: `now()`]
+  comment text [note: 'e.g. rejection reason']
+
+  indexes {
+    (request_id, changed_at)
+    (to_status, changed_at) [note: 'median submitted -> delivered']
+  }
+
+  Note: 'Append-only audit trail. Source of truth for who changed what and when.'
+}
+
+Table assignments {
+  id bigint [pk, increment]
+  request_id uuid [not null, ref: > dataset_requests.id]
+  episode_id bigint [not null, ref: > episodes.id]
+  assigned_by uuid [not null, ref: > users.id]
+  assigned_at timestamptz [not null, default: `now()`]
+  released_by uuid [ref: > users.id]
+  released_at timestamptz [note: 'NULL = currently assigned']
+
+  indexes {
+    (request_id, released_at)
+    episode_id [note: 'real DB: UNIQUE (episode_id) WHERE released_at IS NULL  -> one active request per episode']
+  }
+
+  Note: 'History is kept: unassigning sets released_at instead of deleting.'
+}
