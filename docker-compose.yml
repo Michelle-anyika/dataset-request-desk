@@ -29,6 +29,8 @@ services:
       DJANGO_DEBUG: ${DJANGO_DEBUG:-true}
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-local-dev-only-not-a-secret}
       DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,api}
+      # The app runs as a non-root user that cannot write to /app (intended), so pytest's cache is off here.
+      PYTEST_ADDOPTS: -p no:cacheprovider
     depends_on:
       db:
         condition: service_healthy
