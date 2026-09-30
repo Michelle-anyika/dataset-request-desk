@@ -7,7 +7,8 @@ episodes, operators fulfil them, and clients accept or reject the delivery.
 
 **Stack:** Django REST Framework · PostgreSQL · React (Vite + TypeScript) · Docker · GitHub Actions
 
-> 🚧 Work in progress. See [PLAN.md](PLAN.md) for the implementation plan and [docs/erd.dbml](docs/erd.dbml) for the
+> 🚧 Work in progress. See [PLAN.md](PLAN.md) for the implementation plan,
+> [docs/architecture.md](docs/architecture.md) for the architecture and [docs/erd.dbml](docs/erd.dbml) for the
 > data model.
 
 ## Run it
