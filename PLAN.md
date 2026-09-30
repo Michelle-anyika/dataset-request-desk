@@ -402,3 +402,4 @@ One command: `docker compose run --rm api pytest` (and `make test`).
 | 6 | Median uses first delivery | Rework doesn't hide slow first delivery |
 | 7 | UUID for users/requests, bigint for episodes | Non-guessable URLs; compact high-volume index |
 | 8 | JWT in memory + refresh in localStorage | Cross-domain deploy; XSS risk acknowledged, mitigated by CSP + short access TTL |
+| 9 | One repository (monorepo) for backend and frontend | Brief asks for one repo and `docker compose up` from a clean clone; API + UI change in one PR; Render/Vercel deploy by root directory |
