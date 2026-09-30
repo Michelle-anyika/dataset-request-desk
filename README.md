@@ -42,6 +42,26 @@ pytest
 ```
 </details>
 
+## Operations
+
+**Health check:** `GET /health` (no authentication) returns `200 {"status": "ok", "db": "ok"}`, or
+`503 {"status": "error", "db": "unavailable"}` when the database can't be reached. Docker Compose uses it as the
+API container's healthcheck.
+
+**Logging:** every request writes one JSON line to stdout:
+
+```json
+{"ts": "2026-10-01T09:15:02.481Z", "level": "INFO", "logger": "desk.request", "message": "GET /health 200",
+ "method": "GET", "path": "/health", "status": 200, "duration_ms": 0.82, "user_id": null,
+ "request_id": "6ecc8656ead64edf82dcbe9a58f9fc2e"}
+```
+
+- `level` follows the status: `INFO` below 400, `WARNING` for 4xx, `ERROR` for 5xx.
+- `request_id` is taken from a safe incoming `X-Request-ID` header or generated, and returned in the response
+  header, so a user-reported problem can be traced to its log line.
+- Query strings are not logged, since they can carry tokens or personal data.
+- `LOG_LEVEL` sets the minimum level (default `INFO`).
+
 ## Configuration
 
 All configuration is read from environment variables; `.env.example` lists each one. Missing required values
