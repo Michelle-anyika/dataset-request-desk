@@ -1,0 +1,65 @@
+name: PR checks
+
+on:
+  pull_request:
+    branches: [main, develop]
+    types: [opened, edited, synchronize, reopened]
+
+concurrency:
+  group: pr-checks-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # Git flow: work branches -> develop, develop/hotfix -> main, main -> develop (hotfix back-merge).
+  branch-name:
+    name: Branch naming
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check source branch against target
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          work='^(feat|fix|chore|docs|test|refactor|perf|ci|build)/[a-z0-9]+(-[a-z0-9]+)*$'
+          hotfix='^hotfix/[a-z0-9]+(-[a-z0-9]+)*$'
+          bot='^dependabot/'
+          case "$BASE_REF" in
+            develop) allowed="$work|$hotfix|$bot|^main$" ;;
+            main)    allowed="^develop$|$hotfix" ;;
+          esac
+          if [[ "$HEAD_REF" =~ $allowed ]]; then
+            echo "OK: $HEAD_REF -> $BASE_REF"
+          else
+            echo "::error::Branch '$HEAD_REF' may not open a PR into '$BASE_REF'."
+            echo "Into develop: feat|fix|chore|docs|test|refactor|perf|ci|build|hotfix/<kebab-case>, e.g. feat/12-status-transitions"
+            echo "Into main:    develop or hotfix/<kebab-case>"
+            exit 1
+          fi
+
+  # The PR title becomes the merge commit title, so the title and every commit are checked against
+  # commitlint.config.mjs.
+  commitlint:
+    name: Conventional commits
+    if: github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - name: Install commitlint
+        run: npm install --no-save --no-package-lock @commitlint/cli@21 @commitlint/config-conventional@21
+      - name: Lint PR title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: echo "$PR_TITLE" | npx commitlint --verbose
+      - name: Lint commits
+        run: >-
+          npx commitlint --verbose
+          --from ${{ github.event.pull_request.base.sha }}
+          --to ${{ github.event.pull_request.head.sha }}

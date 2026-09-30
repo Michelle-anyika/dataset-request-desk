@@ -94,14 +94,21 @@ dataset-request-desk/
 
 ## 4. Git workflow
 
-- `main` = **production**. Protected; changes only via PR from `develop`.
-- `develop` = **dev/staging**. Protected; changes only via PR from feature branches.
-- Branch names: `feature/<issue#>-short-name`, `fix/<issue#>-...`, `chore/...`, `docs/...`
-  (e.g. `feature/12-status-transitions`).
+- **Git flow.** `main` = **production** (PRs from `develop` or `hotfix/*` only). `develop` = **dev/staging**
+  (PRs from work branches).
+- Branch names: `feat/`, `fix/`, `hotfix/`, `chore/`, `docs/`, `test/`, `refactor/`, `perf/`, `ci/`, `build/` +
+  kebab-case slug, e.g. `feat/12-status-transitions`. Hotfixes branch from `main` and are back-merged to `develop`.
 - **Conventional Commits:** `feat(requests): enforce status transitions`, `test(import): idempotency on re-run`,
   `fix: ...`, `chore(ci): ...`, `docs: ...`.
+- **Enforced, not just agreed:**
+  - commitlint (`commitlint.config.mjs`) as a local `commit-msg` hook and in CI on every PR commit and the PR title;
+  - branch names by a local pre-commit hook (also blocks commits on `main`/`develop`) and by the CI
+    **Branch naming** check, which also validates source → target (e.g. `feat/*` can't PR into `main`).
+- **TDD** for domain logic: `test(...)` (red) → `feat(...)` (green) → `refactor(...)` commits.
+- PRs are merged with **merge commits** (not squash) so the TDD history stays visible.
 - Small commits, one idea each. Every PR links its issue (`Closes #12`) and must pass CI before merge.
 - Release: PR `develop → main` titled `release: vX.Y.Z`, tag after merge.
+- Full rules: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
@@ -308,6 +315,10 @@ The UI shows only the actions allowed for the user's role, but **the server stay
 ## 11. Testing strategy (what we test and why)
 
 Priority is what the reviewers named: **authorization, transitions, assignments, import idempotency**.
+
+**Approach: TDD** for everything below except the frontend. Each rule in §7/§8 starts as a failing test, so the
+tables in those sections are the test list. Use pytest-django's `django_db` against real Postgres (not SQLite),
+because the partial unique index and `percentile_cont` are Postgres features.
 
 - **Authorization:** matrix test (parametrised role × endpoint → expected status), client A can't see or act on client
   B's request (404), inactive user rejected, operator can't manage users, client can't assign.

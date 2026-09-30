@@ -15,6 +15,18 @@ permissions:
   contents: read
 
 jobs:
+  hygiene:
+    name: Pre-commit hooks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - run: pip install pre-commit
+      # Branch naming is checked by pr-checks.yml; this hook would fail on pushes to develop/main.
+      - run: SKIP=no-commit-to-branch pre-commit run --all-files --show-diff-on-failure
+
   # Backend/frontend jobs only run once their folder exists, so CI is green from the first commit.
   detect:
     name: Detect components
@@ -100,7 +112,7 @@ jobs:
   ci-ok:
     name: CI OK
     if: always()
-    needs: [detect, backend, frontend]
+    needs: [hygiene, detect, backend, frontend]
     runs-on: ubuntu-latest
     steps:
       - name: Fail if any job failed
