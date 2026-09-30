@@ -1,0 +1,39 @@
+# Local stack: `docker compose up`. Every value has a safe local default, so no .env file is needed;
+# copy .env.example to .env to override.
+name: dataset-request-desk
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-desk}
+      POSTGRES_USER: ${POSTGRES_USER:-desk}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-desk}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build:
+      context: ./backend
+      args:
+        INSTALL_DEV: "true"
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-desk}:${POSTGRES_PASSWORD:-desk}@db:5432/${POSTGRES_DB:-desk}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-true}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-local-dev-only-not-a-secret}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,api}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${API_PORT:-8000}:8000"
+
+volumes:
+  pgdata:
