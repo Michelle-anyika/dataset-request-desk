@@ -51,14 +51,8 @@ honest 70% beats a sprawling 100%"*.
 
 ## 3. Architecture
 
-```
-            ┌──────────────────────┐      HTTPS/JSON + JWT      ┌─────────────────────────┐      ┌──────────────┐
- Browser ──►│ React SPA (Vite)     │ ─────────────────────────► │ Django + DRF (gunicorn) │ ───► │ PostgreSQL   │
-            │ Vercel / nginx local │                            │ Render / docker local   │      │ Neon / local │
-            └──────────────────────┘                            └─────────────────────────┘      └──────────────┘
-                                                                  │ JSON logs → stdout
-                                                                  │ /health  (DB ping)
-```
+Full diagrams in **[docs/architecture.md](docs/architecture.md)**: system context, containers, backend components,
+request lifecycle, status workflow, CSV import pipeline, deployment and delivery pipeline.
 
 **Where state lives:** all business state is in PostgreSQL. The API is stateless (JWT), so any number of API
 containers can run. The frontend holds only UI state; the access token is kept in memory and the refresh token in
