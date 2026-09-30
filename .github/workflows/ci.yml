@@ -34,12 +34,14 @@ jobs:
     outputs:
       backend: ${{ steps.check.outputs.backend }}
       frontend: ${{ steps.check.outputs.frontend }}
+      compose: ${{ steps.check.outputs.compose }}
     steps:
       - uses: actions/checkout@v7
       - id: check
         run: |
           echo "backend=$([ -f backend/manage.py ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
           echo "frontend=$([ -f frontend/package.json ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          echo "compose=$([ -f docker-compose.yml ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
   backend:
     name: Backend (lint + tests)
@@ -108,11 +110,35 @@ jobs:
       - run: npm test --if-present
       - run: npm run build
 
+  # Proves the one-command startup from a clean checkout.
+  compose:
+    name: Docker compose smoke test
+    needs: detect
+    if: needs.detect.outputs.compose == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build and start the stack
+        run: docker compose up --build --detach --wait --wait-timeout 180
+      - name: Entrypoint applied all migrations
+        run: |
+          for attempt in $(seq 1 30); do
+            docker compose exec -T api python manage.py migrate --check && exit 0
+            sleep 2
+          done
+          exit 1
+      - name: Show logs
+        if: failure()
+        run: docker compose logs
+      - name: Stop the stack
+        if: always()
+        run: docker compose down --volumes
+
   # Single stable check name for branch protection.
   ci-ok:
     name: CI OK
     if: always()
-    needs: [hygiene, detect, backend, frontend]
+    needs: [hygiene, detect, backend, frontend, compose]
     runs-on: ubuntu-latest
     steps:
       - name: Fail if any job failed
