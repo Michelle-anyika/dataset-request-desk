@@ -6,6 +6,9 @@ extend-exclude = ["*/migrations/*"]
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "B", "UP", "SIM", "DJ"]
 
+[tool.ruff.lint.isort]
+known-first-party = ["apps", "config"]
+
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "config.settings"
 testpaths = ["tests"]
