@@ -67,6 +67,7 @@ jobs:
     env:
       DATABASE_URL: postgres://desk:desk@localhost:5432/desk
       DJANGO_SECRET_KEY: ci-only-not-a-secret
+      JWT_SIGNING_KEY: ci-only-jwt-signing-key-not-a-secret-value
       DJANGO_DEBUG: "false"
     steps:
       - uses: actions/checkout@v7
