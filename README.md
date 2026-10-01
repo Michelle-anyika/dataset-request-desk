@@ -76,6 +76,24 @@ sessions.
 
 **API docs:** Swagger UI at <http://localhost:8000/api/docs/> when `API_DOCS_ENABLED` is on (the local default).
 
+## Importing episodes
+
+The recording system's CSV export is imported with a report of what was created, updated, unchanged and skipped,
+and why. Importing the same file again changes nothing. The decisions for each messy case are in
+[PLAN.md §8](PLAN.md#8-csv-import-decisions-per-messy-case).
+
+```bash
+docker compose exec api python manage.py import_episodes seed/episodes.csv --as ops1@example.com
+# 190 rows: 0 created, 0 updated, 173 unchanged, 17 skipped (9 imported after fixes). Report: import #2.
+#   line   50  duplicate_in_file          Same episode as line 38.
+#   line  162  unknown_robot              Robot 'arm-99' is not a known robot.
+#   ...
+```
+
+Or `POST /api/imports/` with the file (operators and admins), then `GET /api/imports/{id}/` and
+`GET /api/imports/{id}/issues/?severity=skipped`. Uploads are limited to `.csv` and `IMPORT_MAX_UPLOAD_BYTES`
+(20 MB by default). On start, the demo export in `backend/seed/episodes.csv` is imported once.
+
 ## Operations
 
 **Health check:** `GET /health` (no authentication) returns `200 {"status": "ok", "db": "ok"}`, or
