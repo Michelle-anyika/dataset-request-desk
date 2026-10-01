@@ -50,28 +50,35 @@ flowchart LR
 
     subgraph desk["Dataset Request Desk"]
         direction LR
-        web["<b>Web app</b><br/><i>React, TypeScript, Vite</i><br/>Role-based screens,<br/>served as static files"]
+        web["<b>Web app</b><br/><i>React, TypeScript, Vite</i><br/>Role-based screens,<br/>notification bell"]
         api["<b>API</b><br/><i>Django REST Framework, gunicorn</i><br/>Authentication, authorization,<br/>domain rules, import, analytics"]
+        scheduler["<b>Scheduler</b><br/><i>manage.py send_reminders</i><br/>Hourly reminders and<br/>deadline warnings"]
         cli["<b>Management commands</b><br/><i>manage.py</i><br/>seed, import_episodes"]
-        db[("<b>Database</b><br/><i>PostgreSQL 16</i><br/>Users, episodes, requests,<br/>status events, assignments,<br/>import reports")]
+        db[("<b>Database</b><br/><i>PostgreSQL 16</i><br/>Users, episodes, requests,<br/>events, assignments,<br/>notifications, imports")]
     end
 
+    email[["<b>Email</b><br/>SMTP provider,<br/>to the user's inbox"]]
+    sentry[["<b>Error tracking</b><br/>Sentry"]]
     logs[["<b>Platform logs</b><br/>stdout, one JSON line<br/>per request"]]
+    uptime[["<b>Uptime monitor</b><br/>calls /health"]]
 
     user -- "HTTPS" --> web
     web -- "JSON over HTTPS<br/>Bearer JWT" --> api
-    api -- "SQL (psycopg 3)" --> db
-    cli -- "SQL (psycopg 3)" --> db
+    api -- "SQL" --> db
+    scheduler -- "SQL" --> db
+    cli -- "SQL" --> db
+    api -- "delivery and<br/>rejection emails" --> email
+    scheduler -- "reminder emails" --> email
+    api -. "unhandled errors" .-> sentry
     api -. "structured logs" .-> logs
+    uptime -. "GET /health" .-> api
 
     classDef person fill:#08427b,stroke:#052e56,color:#fff
     classDef container fill:#438dd5,stroke:#2e6295,color:#fff
-    classDef store fill:#438dd5,stroke:#2e6295,color:#fff
     classDef external fill:#8a8a8a,stroke:#6b6b6b,color:#fff
     class user person
-    class web,api,cli container
-    class db store
-    class logs external
+    class web,api,scheduler,cli,db container
+    class email,sentry,logs,uptime external
     style desk fill:transparent,stroke:#5d82a8,stroke-width:1px,stroke-dasharray:5 4
 ```
 
@@ -79,6 +86,7 @@ flowchart LR
 |---|---|---|
 | Web app | Screens per role; talks only to the API | No: only UI state and the session tokens |
 | API | Every rule is enforced here: authentication, role and ownership checks, workflow, assignment rules | No: stateless, so it scales horizontally |
+| Scheduler | Runs the idempotent `send_reminders` command every hour: delivery reminders, escalations, deadline warnings, email retries | No |
 | Management commands | Seeding and CLI import; reuse the same domain services as the API | No |
 | Database | Single source of truth; constraints back up the rules in code | **Yes** |
 
@@ -95,7 +103,7 @@ flowchart TB
     authn --> perms["<b>Permission classes</b><br/>role checks · ownership checks"]
     perms --> views["<b>Views and serializers</b><br/>input validation · response shape · pagination"]
     views --> services
-    cmd(["manage.py<br/>seed · import_episodes"]) --> services
+    cmd(["manage.py<br/>seed · import_episodes · send_reminders"]) --> services
 
     subgraph services["Domain services: all business rules"]
         direction LR
@@ -103,6 +111,7 @@ flowchart TB
         assign["<b>Assignments</b><br/>quality rule<br/>one active request"]
         importer["<b>Episode import</b><br/>normalise · validate<br/>upsert · report"]
         analytics["<b>Analytics</b><br/>SQL aggregation"]
+        notify["<b>Notifications</b><br/>in-app and email<br/>reminders"]
     end
 
     services --> models["<b>Models and constraints</b><br/>partial unique index · CHECK constraints · foreign keys<br/>transactions and row locks"]
@@ -110,7 +119,7 @@ flowchart TB
 
     classDef layer fill:#85bbf0,stroke:#5d82a8,color:#000
     classDef entry fill:#e8e8e8,stroke:#999,color:#000
-    class mw,authn,perms,views,workflow,assign,importer,analytics,models layer
+    class mw,authn,perms,views,workflow,assign,importer,analytics,notify,models layer
     class http,cmd entry
     style services fill:transparent,stroke:#5d82a8,stroke-width:1px,stroke-dasharray:5 4
 ```
@@ -124,6 +133,7 @@ shape, and **`/health`** answers without authentication so load balancers and up
 | `accounts` | Custom user (email login, role), authentication, user management, seed command |
 | `catalog` | Robots, episodes, CSV import service, `import_episodes` command, import reports |
 | `requests_desk` | Dataset requests, status workflow and events, assignments |
+| `notifications` | Notification records, inbox endpoints, email delivery, `send_reminders` command |
 | `analytics` | Read-only analytics endpoint backed by SQL aggregation |
 
 ## 4. Request lifecycle
@@ -232,7 +242,20 @@ flowchart TB
 Values that can be safely fixed (casing, whitespace, alternative date formats) are imported and
 noted in the report as *fixed*. Each case and its decision is listed in PLAN.md §8.
 
-## 7. Deployment
+## 7. How problems reach people
+
+Nobody watches logs all day, so the system pushes problems to the people who can act on them. Logs are kept for
+*explaining* a problem once someone knows about it.
+
+| Situation | Who finds out | How |
+|---|---|---|
+| A delivery waits for the client's decision | Client, then the delivering operator | Reminder email and in-app notification every 3 days (at most 3), then an escalation to the operator |
+| A deadline is 2 days away and nothing is delivered | Operators | In-app deadline warning, once per request |
+| The API throws an unhandled error | Development team | Sentry email with stack trace, request and user id |
+| The API or database is down | Development team | Uptime monitor calls `/health` and alerts on failure |
+| Investigating any of the above | Development team | JSON logs, found by the `X-Request-ID` shown to the user |
+
+## 8. Deployment
 
 Three environments with the same container image and configuration from environment variables.
 
@@ -269,7 +292,7 @@ flowchart LR
 | Migrations | Applied by the container entrypoint on start |
 | Configuration | Environment variables only (see `.env.example`); missing required values stop startup |
 
-## 8. Delivery pipeline
+## 9. Delivery pipeline
 
 How a change reaches production. Nothing merges without passing checks, and nothing reaches
 production without a release PR and manual approval.

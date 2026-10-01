@@ -149,7 +149,10 @@ See `docs/erd.dbml` (render at dbdiagram.io). Summary:
   `(quality, task_name)` for analytics and filters.
 - **import_batches / import_row_issues**: one row per import run and one row per skipped/fixed CSV line. This *is*
   the import report and it is kept.
-- **dataset_requests**: owned by a client; `status` column holds the current state.
+- **dataset_requests**: owned by a client; `status` holds the current state and `status_changed_at` when it was
+  entered (drives "awaiting decision for N days" and reminders without scanning events).
+- **notifications**: one row per recipient per event or reminder; `read_at` for the in-app inbox, `emailed_at` so
+  failed emails are retried.
 - **request_status_events**: append-only audit log (from, to, who, when, comment). Source of truth for history and
   for the median submitted→delivered.
 - **assignments**: episode ↔ request, with `released_at` for history. **Partial unique index**
@@ -202,6 +205,34 @@ Every transition runs in a DB transaction with `SELECT … FOR UPDATE` on the re
 - Delivered requires count ≥ requested (checked inside the transition transaction).
 - Over-assigning (more than requested) is allowed. Decision to record.
 
+### 7.4 Notifications and reminders
+
+Not in the brief, but the workflow has two points where it can silently stall. **A client never reviews a delivery**,
+or **operators miss a deadline**. The system must push these to people instead of waiting for someone to look.
+
+| Trigger | Recipient | In-app | Email |
+|---|---|---|---|
+| Request submitted | all active operators | ✅ | – |
+| Request delivered | owning client | ✅ | ✅ (client may not be logged in) |
+| Delivery accepted | operator who delivered it | ✅ | – |
+| Delivery rejected | operator who delivered it | ✅ | ✅ (includes the reason) |
+| **Delivered, no decision after 3 days** | owning client, every 3 days, at most 3 reminders | ✅ | ✅ |
+| **Still undecided after the last reminder** | operator who delivered it ("follow up with the client") | ✅ | ✅ |
+| Deadline in ≤ 2 days and not yet delivered | all active operators, once per request | ✅ | – |
+
+- Notifications for a status change are written **in the same transaction** as the status event, so one can't
+  exist without the other. Emails are sent **after commit** (`transaction.on_commit`), so a rolled-back change never
+  emails anyone. A failed email is logged and retried by the next reminder run (`emailed_at` stays empty).
+- Reminders and deadline warnings come from an **idempotent** command, `python manage.py send_reminders`. Running it
+  twice sends nothing extra, because it checks existing notifications before creating new ones. Locally it runs every
+  hour in a `scheduler` compose service; in the deployed environments it runs from a scheduled job.
+- **No auto-accept.** A client must accept or reject explicitly, because data quality sign-off is a business
+  decision. After the last reminder, a person (the delivering operator) takes over.
+- The operator queue shows **"awaiting client decision for N days"** from `status_changed_at`, so stale deliveries
+  are visible even without notifications.
+- Email: console backend locally (emails appear in `docker compose logs`), SMTP via environment variables in
+  deployed environments.
+
 ---
 
 ## 8. CSV import: decisions per messy case
@@ -244,6 +275,21 @@ noted in the report) and **skipped** (not imported, reason recorded).
 (`assigned_episode_conflict`) so the import can't break the assignment rule.
 Both entry points share one service: `python manage.py import_episodes <file>` and `POST /api/imports/`.
 
+### 8.1 Bulk data: what can be loaded in bulk
+
+The company runs on spreadsheets today, so bulk loading matters as much as single-record screens.
+
+| Data | Bulk path | Priority |
+|---|---|---|
+| **Episodes** | CSV import (above): upload in the UI or `import_episodes`, idempotent, with a report | P0 (brief) |
+| **Episodes from Excel** | Same import also accepts `.xlsx`: the first sheet is read into the same row pipeline, so every rule and report reason is shared | P2 |
+| **Assignments** | Bulk assign: select many episodes, one all-or-nothing request (§7.3) | P0 |
+| **Existing requests from the spreadsheet** | Admin migration import (CSV/XLSX): client email, task, count, deadline, notes, status, and a spreadsheet reference. **Dry-run preview first**, then commit. Idempotent on the reference, so re-running doesn't duplicate; history records "imported" events by the admin who ran it | P2 |
+| **Users** | Seed command today; bulk user import only if the migration import is built | – |
+
+The design choice that makes this cheap: **every bulk path reuses the same service as the single-record path**, so
+bulk data follows exactly the same rules (for example, an imported request can't skip the workflow).
+
 ---
 
 ## 9. API (v1)
@@ -265,6 +311,8 @@ Both entry points share one service: `python manage.py import_episodes <file>` a
 | GET/POST | `/api/imports/` (multipart CSV) | operator |
 | GET | `/api/imports/{id}/` (report + issues) | operator |
 | GET | `/api/analytics/?from=YYYY-MM-DD&to=YYYY-MM-DD` | operator |
+| GET | `/api/notifications/?unread=true` | own only |
+| POST | `/api/notifications/{id}/read/`, `/api/notifications/read-all/` | own only |
 | GET | `/api/docs/` | Swagger UI |
 
 Errors use one JSON shape: `{"error": {"code": "invalid_transition", "message": "...", "details": {...}}}`.
@@ -332,48 +380,42 @@ One command: `docker compose run --rm api pytest` (and `make test`).
 
 ## 12. Schedule
 
-### Tue 29 Sep: Foundations
-- [x] Repo created, plan, ERD script
-- [ ] CI workflow, `develop` branch, branch protection
-- [ ] ERD reviewed at dbdiagram.io → adjust
-- [ ] User stories → GitHub Issues + Project board
-- [ ] Backend scaffold: Django project, settings from env, Dockerfile, docker compose (db + api), `/health`, JSON
-      request logging
+Re-planned on Thu 01 Oct: foundations took longer than planned (repository rules, history clean-up, architecture),
+so domain work is compressed into Thursday and Friday. The board (GitHub Project) is the live view.
 
-### Wed 30 Sep: Auth + requests core
-- [ ] Custom User model + migrations, seed command (users.json, robots), JWT login/refresh/me
-- [ ] Permission classes; admin user management endpoints
-- [ ] DatasetRequest + events; state machine service; transition endpoint
-- [ ] Tests: authorization matrix, transitions
+### Tue 29 – Wed 30 Sep: Foundations ✅
+- [x] Repo, plan, ERD, architecture document
+- [x] CI, commit and branch rules, branch protection, Dependabot
+- [x] User stories as issues on the Project board
+- [x] Django + Docker Compose (#2), `/health` and JSON request logging (#3)
 
-### Thu 01 Oct: Episodes, import, assignments, analytics
-- [ ] Robot/Episode models, CSV import service + command + endpoint + report models
-- [ ] Assignment model with partial unique index; assign/unassign endpoints; episode list with filters
-- [ ] Analytics endpoint (SQL), EXPLAIN on 200k rows
-- [ ] Tests: import (each case + idempotency), assignments, analytics
-- [ ] SonarCloud connected
+### Thu 01 Oct: Accounts and requests core
+- [ ] Custom User + seed (#4), JWT login (#5), admin user management (#16)
+- [ ] Requests: create, scoped visibility, workflow, accept/reject, history (#6–#10)
+- [ ] Error reporting to Sentry
 
-### Fri 02 Oct: Frontend
-- [ ] Vite + React + TS + MUI scaffold, auth context, axios interceptor, protected routes
-- [ ] Client pages; operator pages (queue, detail, assign); imports; analytics; users
-- [ ] Frontend container (nginx) in compose → **full `docker compose up` from clean clone**
+### Fri 02 Oct: Episodes, assignments, analytics, notifications
+- [ ] CSV import (#11), episode filters (#12), assign/unassign (#13, #14), analytics (#15)
+- [ ] Notifications on status changes; reminders command and scheduler; email
+- [ ] SonarCloud (#17)
 
-### Sat 03 Oct: Deploy + hardening
-- [ ] Neon (dev/prod branches), Render (2 services), Vercel; CD workflow; secrets
-- [ ] Release `develop → main` v0.1.0; smoke test prod
-- [ ] Edge cases, error messages, empty states; frontend tests
+### Sat 03 Oct: Frontend
+- [ ] Scaffold, auth, protected routes (#18); client (#19) and operator (#20, #21) pages; notification bell
+- [ ] Import report (#22), analytics (#23), admin users (#24)
+- [ ] Frontend container in compose → **full `docker compose up` from a clean clone**
 
-### Sun 04 Oct: Write-up + submit
-- [ ] `README.md`: run, test, credentials, URLs, badges, screenshots, 5M-episodes section
-- [ ] `NOTES.md`: all 6 sections (design, left out, what went wrong, security, scale, AI tooling)
-- [ ] Clean-clone test on a fresh folder; final release; **email the link by 16:00**
+### Sun 04 Oct: Deploy, write-up, submit
+- [ ] Deploy dev and prod with CD, uptime monitor (#25)
+- [ ] `README.md` and `NOTES.md` (#26); clean-clone test in a fresh folder
+- [ ] Release `develop → main`; **email the link by 16:00**
 
 ### Cut list (if behind, cut from the top)
-1. Frontend tests beyond login/guard
-2. Analytics chart (show tables instead)
-3. Dev environment (keep prod only)
-4. SonarCloud
-5. Deployment entirely (it's the stretch item; everything else is required)
+1. Existing-request migration import and `.xlsx` support (P2)
+2. Admin users page (P2), frontend tests beyond login and route guards
+3. Analytics chart (show tables instead)
+4. Deadline warnings (keep delivery reminders)
+5. Dev environment (keep prod only), then SonarCloud
+6. Deployment entirely (it's the stretch item; everything else is required)
 
 ---
 
@@ -397,3 +439,8 @@ One command: `docker compose run --rm api pytest` (and `make test`).
 | 7 | UUID for users/requests, bigint for episodes | Non-guessable URLs; compact high-volume index |
 | 8 | JWT in memory + refresh in localStorage | Cross-domain deploy; XSS risk acknowledged, mitigated by CSP + short access TTL |
 | 9 | One repository (monorepo) for backend and frontend | Brief asks for one repo and `docker compose up` from a clean clone; API + UI change in one PR; Render/Vercel deploy by root directory |
+| 10 | Notifications and reminders, though not in the brief | A delivery nobody reviews, or a missed deadline, would otherwise stall silently |
+| 11 | Email as well as in-app for client-facing events | A client who forgets doesn't log in; email reaches them |
+| 12 | No auto-accept after reminders; hand over to the delivering operator | Accepting data is a business decision the client must make |
+| 13 | Errors pushed to Sentry, uptime monitored on `/health` | Logs explain problems but nobody reads them to *find* problems |
+| 14 | Bulk paths reuse single-record services | Bulk data can't bypass the rules |
