@@ -150,11 +150,31 @@ jobs:
         if: always()
         run: docker compose down --volumes
 
+  # Static analysis and coverage of new code; the job fails if the SonarCloud quality gate fails.
+  sonarcloud:
+    name: SonarCloud
+    needs: [detect, backend]
+    if: needs.detect.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0  # full history for accurate "new code" and blame
+      - uses: actions/download-artifact@v7
+        with:
+          name: backend-coverage
+          path: backend
+      - uses: SonarSource/sonarqube-scan-action@d209202bc7d53ff1cc128f7f907dac145c9d6ae9  # v8.3.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: -Dsonar.qualitygate.wait=true
+
   # Single stable check name for branch protection.
   ci-ok:
     name: CI OK
     if: always()
-    needs: [hygiene, detect, backend, frontend, compose]
+    needs: [hygiene, detect, backend, frontend, compose, sonarcloud]
     runs-on: ubuntu-latest
     steps:
       - name: Fail if any job failed
