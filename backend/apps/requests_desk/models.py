@@ -73,3 +73,41 @@ class RequestStatusEvent(models.Model):
 
     def __str__(self):
         return f"{self.from_status or '-'} -> {self.to_status} at {self.changed_at:%Y-%m-%d %H:%M}"
+
+
+class Assignment(models.Model):
+    """An episode delivered as part of a request.
+
+    Unassigning sets ``released_at``; history is never deleted.
+    """
+
+    request = models.ForeignKey(DatasetRequest, on_delete=models.PROTECT, related_name="assignments")
+    episode = models.ForeignKey("catalog.Episode", on_delete=models.PROTECT, related_name="assignments")
+    assigned_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+    assigned_at = models.DateTimeField(default=timezone.now)
+    released_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+", null=True, blank=True
+    )
+    released_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "assignments"
+        ordering = ["assigned_at", "id"]
+        constraints = [
+            # "An episode is assigned to at most one request at a time", enforced by the database: a
+            # partial unique index over active rows only. Correct under concurrency, unlike a Python check.
+            models.UniqueConstraint(
+                fields=["episode"],
+                condition=models.Q(released_at__isnull=True),
+                name="assignments_one_active_per_episode",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(released_at__isnull=True, released_by__isnull=True)
+                | models.Q(released_at__isnull=False, released_by__isnull=False),
+                name="assignments_release_complete",
+            ),
+        ]
+        indexes = [models.Index(fields=["request", "released_at"], name="assignments_request_active_idx")]
+
+    def __str__(self):
+        return f"{self.episode_id} -> {self.request_id}"
