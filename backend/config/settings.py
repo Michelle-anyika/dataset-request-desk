@@ -5,6 +5,7 @@ from pathlib import Path
 
 import dj_database_url
 
+from apps.core.monitoring import init_error_reporting
 from config.env import env_bool, env_list, env_str
 from config.security import https_settings
 
@@ -158,3 +159,10 @@ HTTPS_ONLY = env_bool("HTTPS_ONLY", default=not DEBUG)
 globals().update(https_settings(enabled=HTTPS_ONLY))
 SECURE_REDIRECT_EXEMPT = [r"^health$"]  # hosting health checks call it over HTTP inside their network
 X_FRAME_OPTIONS = "DENY"
+
+# Error reporting (apps.core.monitoring): off unless a DSN is configured.
+init_error_reporting(
+    dsn=env_str("SENTRY_DSN", default=""),
+    environment=env_str("SENTRY_ENVIRONMENT", default="local"),
+    release=env_str("RELEASE", default=""),
+)
