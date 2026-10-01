@@ -17,5 +17,8 @@ def test_docs_are_hidden_when_disabled(client, settings):
     # Off by default in production: no need to publish a map of the API.
     settings.API_DOCS_ENABLED = False
 
-    assert client.get("/api/schema/").status_code == 404
+    schema = client.get("/api/schema/")
+
+    assert schema.status_code == 404
+    assert schema.json() == {"error": {"code": "not_found", "message": "Not found."}}
     assert client.get("/api/docs/").status_code == 404

@@ -15,3 +15,11 @@ class UserSerializer(serializers.ModelSerializer):
         model = get_user_model()
         fields = ["id", "email", "full_name", "role", "organisation"]
         read_only_fields = fields
+
+
+class AccessTokenSerializer(serializers.Serializer):
+    access = serializers.CharField(help_text="Bearer token, valid for 10 minutes. Keep it in memory only.")
+
+
+class LoginResponseSerializer(AccessTokenSerializer):
+    user = UserSerializer()

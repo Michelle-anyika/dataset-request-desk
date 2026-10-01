@@ -1,6 +1,7 @@
 import logging
 
 from django.contrib.auth import authenticate
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.exceptions import AuthenticationFailed, NotAuthenticated, Throttled
 from rest_framework.permissions import AllowAny
@@ -10,7 +11,12 @@ from rest_framework.views import APIView
 from apps.accounts import sessions, throttling
 from apps.accounts.audit import email_hash, security_event
 from apps.accounts.authentication import SessionReuseDetected
-from apps.accounts.serializers import LoginSerializer, UserSerializer
+from apps.accounts.serializers import (
+    AccessTokenSerializer,
+    LoginResponseSerializer,
+    LoginSerializer,
+    UserSerializer,
+)
 
 
 class InvalidCredentials(AuthenticationFailed):
@@ -37,6 +43,11 @@ class LoginView(PublicAuthView):
         security_event("auth.throttled", request, level=logging.WARNING, limit="ip")
         super().throttled(request, wait)
 
+    @extend_schema(
+        request=LoginSerializer,
+        responses={200: LoginResponseSerializer},
+        description="Sets the refresh token as an HttpOnly cookie. Throttled per IP and per email.",
+    )
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -65,6 +76,11 @@ class LoginView(PublicAuthView):
 
 
 class RefreshView(PublicAuthView):
+    @extend_schema(
+        request=None,
+        responses={200: AccessTokenSerializer},
+        description="Uses and rotates the refresh cookie. Reusing an old refresh token ends every session.",
+    )
     def post(self, request):
         raw_refresh = request.COOKIES.get(sessions.REFRESH_COOKIE)
         if not raw_refresh:
@@ -86,6 +102,9 @@ class RefreshView(PublicAuthView):
 
 
 class LogoutView(PublicAuthView):
+    @extend_schema(
+        request=None, responses={204: None}, description="Ends this session and clears the cookie."
+    )
     def post(self, request):
         raw_refresh = request.COOKIES.get(sessions.REFRESH_COOKIE)
         if raw_refresh and (user_id := sessions.end_session(raw_refresh)):
@@ -96,6 +115,7 @@ class LogoutView(PublicAuthView):
 
 
 class LogoutAllView(APIView):
+    @extend_schema(request=None, responses={204: None}, description="Ends every session of the current user.")
     def post(self, request):
         sessions.revoke_all_sessions(request.user)
         security_event("auth.logout_all", request, user_id=str(request.user.pk))
@@ -105,5 +125,6 @@ class LogoutAllView(APIView):
 
 
 class MeView(APIView):
+    @extend_schema(responses={200: UserSerializer})
     def get(self, request):
         return Response(UserSerializer(request.user).data)

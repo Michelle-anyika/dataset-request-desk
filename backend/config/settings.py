@@ -19,6 +19,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "rest_framework_simplejwt.token_blacklist",
+    "drf_spectacular",
     "apps.core",
     "apps.accounts",
     "apps.catalog",
@@ -49,6 +50,9 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = "config.urls"
+
+# Only used to render the Swagger UI page.
+TEMPLATES = [{"BACKEND": "django.template.backends.django.DjangoTemplates", "APP_DIRS": True}]
 WSGI_APPLICATION = "config.wsgi.application"
 
 DATABASES = {
@@ -89,6 +93,7 @@ REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
     "DEFAULT_PARSER_CLASSES": ["rest_framework.parsers.JSONParser"],
     "EXCEPTION_HANDLER": "apps.core.exceptions.api_exception_handler",
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     # Proxies in front of the API (e.g. the hosting load balancer): needed to find the real client IP for
     # throttling. 0 locally, where clients connect directly.
     "NUM_PROXIES": int(env_str("TRUSTED_PROXY_COUNT", default="0")),
@@ -116,3 +121,13 @@ SIMPLE_JWT = {
 }
 # Browsers accept Secure cookies on http://localhost, so this stays on everywhere unless explicitly disabled.
 AUTH_COOKIE_SECURE = env_bool("AUTH_COOKIE_SECURE", default=True)
+
+# OpenAPI docs at /api/docs/. On by default only in DEBUG: production doesn't publish a map of the API.
+API_DOCS_ENABLED = env_bool("API_DOCS_ENABLED", default=DEBUG)
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Dataset Request Desk API",
+    "DESCRIPTION": "Internal API for dataset requests, episodes and fulfilment.",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "COMPONENT_SPLIT_REQUEST": True,
+}
