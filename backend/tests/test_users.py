@@ -18,6 +18,7 @@ def test_email_is_the_login_and_ids_are_uuids():
     assert isinstance(user.pk, uuid.UUID)
 
 
+@pytest.mark.real_password_hashing
 def test_password_is_stored_hashed():
     user = User.objects.create_user(email="ops@example.com", password="s3cret-pass", full_name="Olu Operator")
 
