@@ -9,6 +9,7 @@ from apps.requests_desk import services, workflow
 from apps.requests_desk.models import DatasetRequest
 from apps.requests_desk.serializers import (
     DatasetRequestSerializer,
+    RequestEventSerializer,
     RequestFilterSerializer,
     TransitionSerializer,
 )
@@ -69,3 +70,11 @@ class DatasetRequestViewSet(
         serializer.is_valid(raise_exception=True)
         updated = workflow.transition(dataset_request, actor=request.user, **serializer.validated_data)
         return Response(DatasetRequestSerializer(updated).data)
+
+    @extend_schema(responses={200: RequestEventSerializer(many=True)})
+    @action(detail=True, methods=["get"], url_path="events")
+    def events(self, request, pk=None):
+        """Status history, oldest first. Append-only: there are no endpoints to change it."""
+        dataset_request = self.get_object()  # scoped: another client's request is 404
+        events = dataset_request.events.select_related("changed_by")
+        return Response(RequestEventSerializer(events, many=True).data)
