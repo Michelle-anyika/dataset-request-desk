@@ -8,6 +8,7 @@ from django.utils import timezone
 
 from apps.catalog.models import Episode, Quality, Robot
 from apps.notifications.models import Notification, NotificationKind
+from apps.notifications.services import send_pending_emails
 from apps.requests_desk.models import Assignment, RequestStatus
 from apps.requests_desk.services import submit_request
 from apps.requests_desk.workflow import transition
@@ -76,6 +77,8 @@ class TestWhoIsNotified:
         deliver(submitted, operators[0], django_capture_on_commit_callbacks)
 
         assert kinds_for(owner) == [NotificationKind.REQUEST_DELIVERED]
+        assert mail.outbox == []  # the status change doesn't wait for a mail server
+        send_pending_emails()
         [email] = mail.outbox
         assert email.to == ["client@example.com"]
         assert "pick cup" in email.subject
@@ -86,10 +89,12 @@ class TestWhoIsNotified:
         self, submitted, operators, owner, django_capture_on_commit_callbacks
     ):
         deliver(submitted, operators[1], django_capture_on_commit_callbacks)
+        send_pending_emails()  # the client's delivery email, as the scheduler would send it
         mail.outbox.clear()
 
         with django_capture_on_commit_callbacks(execute=True):
             transition(submitted, to_status=S.REJECTED, actor=owner, comment="Wrong cup in half the clips.")
+        send_pending_emails()
 
         assert kinds_for(operators[1])[-1] == NotificationKind.DELIVERY_REJECTED
         assert NotificationKind.DELIVERY_REJECTED not in kinds_for(operators[0])
@@ -101,37 +106,59 @@ class TestWhoIsNotified:
         self, submitted, operators, owner, django_capture_on_commit_callbacks
     ):
         deliver(submitted, operators[0], django_capture_on_commit_callbacks)
+        send_pending_emails()
         mail.outbox.clear()
 
         with django_capture_on_commit_callbacks(execute=True):
             transition(submitted, to_status=S.ACCEPTED, actor=owner)
+        send_pending_emails()
 
         assert kinds_for(operators[0])[-1] == NotificationKind.DELIVERY_ACCEPTED
         assert mail.outbox == []
 
 
 class TestDelivery:
-    def test_a_failed_email_never_breaks_the_status_change(
+    """Emails are an outbox: status changes record them, the scheduler sends them (every minute)."""
+
+    def test_a_status_change_never_waits_for_email(
         self, submitted, operators, owner, django_capture_on_commit_callbacks, monkeypatch
     ):
         from apps.notifications import services
 
-        def smtp_down(*args, **kwargs):
-            raise OSError("SMTP server unreachable")
-
-        monkeypatch.setattr(services, "send_mail", smtp_down)
+        attempts = []
+        monkeypatch.setattr(services, "send_mail", lambda **kwargs: attempts.append(kwargs))
 
         deliver(submitted, operators[0], django_capture_on_commit_callbacks)
 
         submitted.refresh_from_db()
         assert submitted.status == S.DELIVERED
-        assert Notification.objects.get(recipient=owner).emailed_at is None  # retried by send_reminders
+        assert attempts == []  # no mail server was contacted inside the request
+        assert Notification.objects.get(recipient=owner).emailed_at is None
 
-    def test_no_email_is_sent_for_a_change_that_rolls_back(self, submitted, operators, owner):
-        # Without running on-commit callbacks (as if the transaction rolled back), nothing is sent.
-        transition(submitted, to_status=S.IN_PROGRESS, actor=operators[0])
+    def test_a_failed_send_is_retried_on_the_next_run(
+        self, submitted, operators, owner, django_capture_on_commit_callbacks, monkeypatch
+    ):
+        from apps.notifications import services
 
-        assert mail.outbox == []
+        deliver(submitted, operators[0], django_capture_on_commit_callbacks)
+        real_send_mail = services.send_mail
+
+        def smtp_down(**kwargs):
+            raise OSError("SMTP server unreachable")
+
+        monkeypatch.setattr(services, "send_mail", smtp_down)
+        assert send_pending_emails() == 0
+        assert Notification.objects.get(recipient=owner).emailed_at is None
+
+        monkeypatch.setattr(services, "send_mail", real_send_mail)
+        assert send_pending_emails() == 1
+        assert Notification.objects.get(recipient=owner).emailed_at is not None
+        assert send_pending_emails() == 0  # sent exactly once
+
+    def test_in_app_only_kinds_are_never_emailed(self, submitted, operators):
+        send_pending_emails()
+
+        assert mail.outbox == []  # request_submitted is in-app only
 
 
 class TestInbox:

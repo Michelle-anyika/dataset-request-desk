@@ -148,6 +148,22 @@ class TestDeadlineWarnings:
         assert kinds(operator, due_soon) == []
 
 
+def test_reminder_runs_cost_a_fixed_number_of_queries(owner, operator, django_assert_max_num_queries):
+    """Requests that need nothing must not cost queries each: the check is done in SQL for all at once."""
+    for _ in range(25):
+        DatasetRequest.objects.create(
+            client=owner,
+            task_name="pick cup",
+            episodes_requested=1,
+            deadline=timezone.localdate() + timedelta(days=60),
+            status=S.DELIVERED,
+            status_changed_at=timezone.now(),
+        )
+
+    with django_assert_max_num_queries(4):  # waiting deliveries, due deadlines, operators, pending emails
+        send_reminders(now=timezone.now() + timedelta(hours=1))
+
+
 def test_unsent_emails_are_retried(delivered, owner):
     stuck = Notification.objects.create(
         recipient=owner,
