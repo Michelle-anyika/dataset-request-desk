@@ -1,11 +1,12 @@
 from django.contrib.auth import authenticate
-from rest_framework.exceptions import AuthenticationFailed
+from rest_framework import status
+from rest_framework.exceptions import AuthenticationFailed, NotAuthenticated
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.accounts import sessions
 from apps.accounts.serializers import LoginSerializer, UserSerializer
-from apps.accounts.sessions import start_session
 
 
 class InvalidCredentials(AuthenticationFailed):
@@ -14,7 +15,9 @@ class InvalidCredentials(AuthenticationFailed):
     default_code = "invalid_credentials"
 
 
-class LoginView(APIView):
+class PublicAuthView(APIView):
+    """Auth endpoints that work without an access token (they rely on credentials or the refresh cookie)."""
+
     authentication_classes = []
     permission_classes = [AllowAny]
 
@@ -22,6 +25,8 @@ class LoginView(APIView):
         # Without an authenticator DRF would turn 401 into 403; credentials errors are 401 with a challenge.
         return 'Bearer realm="api"'
 
+
+class LoginView(PublicAuthView):
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -33,7 +38,42 @@ class LoginView(APIView):
             raise InvalidCredentials()
 
         response = Response({"user": UserSerializer(user).data})
-        response.data["access"] = start_session(user, response)
+        response.data["access"] = sessions.start_session(user, response)
+        return response
+
+
+class RefreshView(PublicAuthView):
+    def post(self, request):
+        raw_refresh = request.COOKIES.get(sessions.REFRESH_COOKIE)
+        if not raw_refresh:
+            raise NotAuthenticated("No active session.")
+        try:
+            access, refresh = sessions.rotate_session(raw_refresh)
+        except AuthenticationFailed as exc:
+            response = self.handle_exception(exc)
+            sessions.clear_refresh_cookie(response)
+            return response
+
+        response = Response({"access": access})
+        sessions.set_refresh_cookie(response, refresh)
+        return response
+
+
+class LogoutView(PublicAuthView):
+    def post(self, request):
+        raw_refresh = request.COOKIES.get(sessions.REFRESH_COOKIE)
+        if raw_refresh:
+            sessions.end_session(raw_refresh)
+        response = Response(status=status.HTTP_204_NO_CONTENT)
+        sessions.clear_refresh_cookie(response)
+        return response
+
+
+class LogoutAllView(APIView):
+    def post(self, request):
+        sessions.revoke_all_sessions(request.user)
+        response = Response(status=status.HTTP_204_NO_CONTENT)
+        sessions.clear_refresh_cookie(response)
         return response
 
 

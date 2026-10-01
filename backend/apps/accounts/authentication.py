@@ -9,6 +9,11 @@ class SessionRevoked(AuthenticationFailed):
     default_code = "session_revoked"
 
 
+class InvalidSession(AuthenticationFailed):
+    default_detail = "Your session is not valid. Please log in again."
+    default_code = "invalid_session"
+
+
 def is_current_session(token, user) -> bool:
     """A token is only valid for the session version it was issued with."""
     return token.get(SESSION_VERSION_CLAIM) == user.session_version
