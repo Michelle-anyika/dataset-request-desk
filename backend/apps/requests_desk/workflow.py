@@ -14,6 +14,7 @@ from django.utils import timezone
 from rest_framework import exceptions, status
 
 from apps.accounts.models import Role
+from apps.notifications.services import notify_status_change
 from apps.requests_desk.assignments import active_count
 from apps.requests_desk.models import DatasetRequest, RequestStatus, RequestStatusEvent
 
@@ -102,7 +103,7 @@ def transition(request: DatasetRequest, *, to_status: str, actor, comment: str =
     previous, now = request.status, timezone.now()
     request.status, request.status_changed_at = to_status, now
     request.save(update_fields=["status", "status_changed_at", "updated_at"])
-    RequestStatusEvent.objects.create(
+    event = RequestStatusEvent.objects.create(
         request=request,
         from_status=previous,
         to_status=to_status,
@@ -110,4 +111,5 @@ def transition(request: DatasetRequest, *, to_status: str, actor, comment: str =
         changed_at=now,
         comment=comment.strip(),
     )
+    notify_status_change(request, event)
     return request

@@ -141,6 +141,27 @@ What we'd change, in order:
 4. **`COPY` into a staging table** plus `INSERT … ON CONFLICT` for imports, typically several times faster than
    ORM bulk inserts.
 
+## Notifications and reminders
+
+So that nothing stalls silently (PLAN.md §7.4):
+
+| When | Who hears | How |
+|---|---|---|
+| A request is submitted | every active operator | in-app |
+| A request is delivered | the client | in-app and email |
+| A delivery is accepted / rejected | the operator who delivered it | in-app / in-app and email with the reason |
+| A delivery waits 3 days for a decision | the client, every 3 days, at most 3 times | in-app and email |
+| Still no decision after that | the operator who delivered it | in-app and email |
+| A deadline is 2 days away and nothing is delivered | every active operator, once | in-app |
+
+- Notifications are written in the same transaction as the status change. Emails are sent only after it commits,
+  so a rolled-back change never emails anyone, and a failed email never blocks the workflow.
+- The `scheduler` container runs `python manage.py send_reminders` hourly. It's idempotent, and it also retries
+  unsent emails and removes expired token blacklist entries.
+- Locally, emails go to the console: `docker compose logs api scheduler`. The inbox API is
+  `GET /api/notifications/`, `GET /api/notifications/summary/`, `POST /api/notifications/{id}/read/` and
+  `POST /api/notifications/read-all/`.
+
 ## Operations
 
 **Health check:** `GET /health` (no authentication) returns `200 {"status": "ok", "db": "ok"}`, or
