@@ -8,12 +8,23 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 # Dev dependencies (pytest, ruff) only when requested, so the production image stays small.
+# Every package is hash-locked (requirements*.txt are generated from the .in files) and installed from wheels
+# only, so no package code runs during installation.
 ARG INSTALL_DEV=false
 COPY requirements.txt requirements-dev.txt ./
-RUN pip install -r requirements.txt \
-    && if [ "$INSTALL_DEV" = "true" ]; then pip install -r requirements-dev.txt; fi
+RUN pip install --require-hashes --only-binary=:all: -r requirements.txt \
+    && if [ "$INSTALL_DEV" = "true" ]; then \
+        pip install --require-hashes --only-binary=:all: -r requirements-dev.txt; \
+    fi
 
-COPY . .
+# Only what the app needs, never the whole build context.
+COPY manage.py pyproject.toml ./
+COPY config ./config
+COPY apps ./apps
+COPY seed ./seed
+COPY docker ./docker
+COPY tests ./tests
+
 RUN chmod +x docker/entrypoint.sh \
     && useradd --create-home --uid 1000 app
 USER app
