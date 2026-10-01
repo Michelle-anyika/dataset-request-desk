@@ -154,10 +154,11 @@ So that nothing stalls silently (PLAN.md §7.4):
 | Still no decision after that | the operator who delivered it | in-app and email |
 | A deadline is 2 days away and nothing is delivered | every active operator, once | in-app |
 
-- Notifications are written in the same transaction as the status change. Emails are sent only after it commits,
-  so a rolled-back change never emails anyone, and a failed email never blocks the workflow.
-- The `scheduler` container runs `python manage.py send_reminders` hourly. It's idempotent, and it also retries
-  unsent emails and removes expired token blacklist entries.
+- Notifications are written in the same transaction as the status change. Emails work as an **outbox**: the
+  request only records them, so it never waits for a mail server, and a rolled-back change never emails anyone.
+- The `scheduler` container runs `python manage.py send_reminders` every minute. It's idempotent: it sends
+  pending emails (retrying failed ones), creates due reminders and warnings, and removes expired token blacklist
+  entries. Its checks run in a fixed number of SQL queries, however many requests are open.
 - Locally, emails go to the console: `docker compose logs api scheduler`. The inbox API is
   `GET /api/notifications/`, `GET /api/notifications/summary/`, `POST /api/notifications/{id}/read/` and
   `POST /api/notifications/read-all/`.
