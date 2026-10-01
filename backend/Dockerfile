@@ -18,7 +18,7 @@ RUN pip install --require-hashes --only-binary=:all: -r requirements.txt \
     fi
 
 # Only what the app needs, never the whole build context.
-COPY manage.py pyproject.toml ./
+COPY manage.py pyproject.toml gunicorn.conf.py ./
 COPY config ./config
 COPY apps ./apps
 COPY seed ./seed
@@ -31,6 +31,5 @@ USER app
 
 EXPOSE 8000
 ENTRYPOINT ["./docker/entrypoint.sh"]
-# PORT is set by some hosts (e.g. Render); WEB_CONCURRENCY tunes gunicorn workers.
-# exec so gunicorn receives SIGTERM directly and shuts down gracefully.
-CMD ["sh", "-c", "exec gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers ${WEB_CONCURRENCY:-3}"]
+# Settings (threads, timeouts, worker recycling, PORT) are in gunicorn.conf.py.
+CMD ["gunicorn", "--config", "gunicorn.conf.py", "config.wsgi:application"]
