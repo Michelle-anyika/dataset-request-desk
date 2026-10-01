@@ -1,4 +1,6 @@
+from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
 # Robots the recording system is known to use (seed/README.md). Episodes for any other robot are rejected.
 KNOWN_ROBOTS = ("arm-01", "arm-02", "arm-03", "mobile-01", "humanoid-01")
@@ -46,6 +48,10 @@ class Episode(models.Model):
     duration_seconds = models.PositiveIntegerField()
     operator_name = models.CharField(max_length=100, blank=True)  # optional in the export
     quality = models.CharField(max_length=8, choices=Quality.choices)
+    # The import that last created or changed this episode: traceability back to the source file.
+    import_batch = models.ForeignKey(
+        "ImportBatch", on_delete=models.SET_NULL, null=True, blank=True, related_name="episodes"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -69,3 +75,57 @@ class Episode(models.Model):
 
     def __str__(self):
         return self.episode_id
+
+
+class ImportStatus(models.TextChoices):
+    RUNNING = "running", "Running"
+    COMPLETED = "completed", "Completed"
+    FAILED = "failed", "Failed"
+
+
+class ImportBatch(models.Model):
+    """One run of the episode import, kept as its report."""
+
+    file_name = models.CharField(max_length=255)
+    file_sha256 = models.CharField(max_length=64)  # recognises the same file imported again
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+    status = models.CharField(max_length=16, choices=ImportStatus.choices, default=ImportStatus.RUNNING)
+    total_rows = models.PositiveIntegerField(default=0)
+    created_count = models.PositiveIntegerField(default=0)
+    updated_count = models.PositiveIntegerField(default=0)
+    unchanged_count = models.PositiveIntegerField(default=0)
+    skipped_count = models.PositiveIntegerField(default=0)
+    fixed_count = models.PositiveIntegerField(default=0)  # imported rows whose values had to be normalised
+    error_message = models.TextField(blank=True)  # why a failed import stopped
+    started_at = models.DateTimeField(default=timezone.now)
+    finished_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "import_batches"
+        ordering = ["-started_at", "-id"]
+
+    def __str__(self):
+        return f"{self.file_name} ({self.status})"
+
+
+class IssueSeverity(models.TextChoices):
+    SKIPPED = "skipped", "Skipped"  # the row was not imported
+    FIXED = "fixed", "Fixed"  # the row was imported after normalising a value
+
+
+class ImportRowIssue(models.Model):
+    batch = models.ForeignKey(ImportBatch, on_delete=models.CASCADE, related_name="issues")
+    row_number = models.PositiveIntegerField()  # line in the file, so a person can find it
+    episode_id = models.CharField(max_length=64, blank=True)
+    severity = models.CharField(max_length=8, choices=IssueSeverity.choices)
+    reason_code = models.CharField(max_length=50)
+    message = models.TextField()
+    raw_row = models.JSONField(default=dict)  # the original values, exactly as read
+
+    class Meta:
+        db_table = "import_row_issues"
+        ordering = ["row_number", "id"]
+        indexes = [models.Index(fields=["batch", "severity"], name="issues_batch_severity_idx")]
+
+    def __str__(self):
+        return f"line {self.row_number}: {self.reason_code}"

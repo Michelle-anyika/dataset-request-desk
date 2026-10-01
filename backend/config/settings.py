@@ -138,3 +138,6 @@ SPECTACULAR_SETTINGS = {
     # One schema name for choice sets used by several fields.
     "ENUM_NAME_OVERRIDES": {"RequestStatus": "apps.requests_desk.models.RequestStatus"},
 }
+
+# Episode import uploads (docs/security.md section 2): bounded size, CSV only.
+IMPORT_MAX_UPLOAD_BYTES = int(env_str("IMPORT_MAX_UPLOAD_BYTES", default=str(20 * 1024 * 1024)))

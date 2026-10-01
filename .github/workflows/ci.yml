@@ -138,6 +138,11 @@ jobs:
           access=$(echo "$login" | python3 -c 'import json, sys; print(json.load(sys.stdin)["access"])')
           grep -q refresh_token cookies.txt
           curl --fail --silent --show-error -H "Authorization: Bearer $access" http://localhost:8000/api/auth/me/             | grep -q '"role":"admin"'
+      - name: The demo export was imported once, and importing it again creates nothing
+        run: |
+          out=$(docker compose exec -T api python manage.py import_episodes seed/episodes.csv --as admin@example.com)
+          echo "$out"
+          echo "$out" | grep -q " 0 created, 0 updated, 173 unchanged, 17 skipped"
       - name: Demo data was seeded, and seeding again changes nothing
         run: |
           out=$(docker compose exec -T api python manage.py seed)

@@ -77,7 +77,7 @@ Table episodes {
   task_name varchar(120) [not null, note: 'normalised: trimmed, single spaces, lower-case']
   recorded_at timestamptz [not null, note: 'stored in UTC']
   duration_seconds integer [not null, note: 'CHECK (duration_seconds > 0)']
-  operator_name varchar(100)
+  operator_name varchar(100) [not null, default: '', note: 'empty when missing from the export']
   quality episode_quality [not null]
   import_batch_id bigint [ref: > import_batches.id, note: 'batch that last created/updated this row']
   created_at timestamptz [not null, default: `now()`]
@@ -100,6 +100,8 @@ Table import_batches {
   updated_count integer [not null, default: 0]
   unchanged_count integer [not null, default: 0]
   skipped_count integer [not null, default: 0]
+  fixed_count integer [not null, default: 0, note: 'imported rows whose values had to be normalised']
+  error_message text [note: 'why a failed import stopped, e.g. a missing column']
   started_at timestamptz [not null, default: `now()`]
   finished_at timestamptz
 

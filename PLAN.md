@@ -278,6 +278,11 @@ noted in the report) and **skipped** (not imported, reason recorded).
 (`assigned_episode_conflict`) so the import can't break the assignment rule.
 Both entry points share one service: `python manage.py import_episodes <file>` and `POST /api/imports/`.
 
+**Result on `seed/episodes.csv`:** 190 rows, **173 created, 17 skipped, 9 imported after fixes**. Imported again:
+0 created, 173 unchanged, the same 17 skipped. Also enforced: one import at a time (PostgreSQL advisory lock), the
+whole import in one transaction, non-UTF-8 or malformed files fail cleanly and are recorded as failed imports, and
+header names are matched ignoring case and surrounding spaces.
+
 ### 8.1 Bulk data: what can be loaded in bulk
 
 The company runs on spreadsheets today, so bulk loading matters as much as single-record screens.
