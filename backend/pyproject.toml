@@ -1,7 +1,8 @@
 [tool.ruff]
 line-length = 110
 target-version = "py313"
-extend-exclude = ["*/migrations/*"]
+# seed/ holds files supplied with the brief, kept exactly as given.
+extend-exclude = ["*/migrations/*", "seed/*"]
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "B", "UP", "SIM", "DJ"]
