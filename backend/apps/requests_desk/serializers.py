@@ -3,7 +3,7 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from apps.catalog.normalise import normalise_task_name
-from apps.requests_desk.models import DatasetRequest, RequestStatus
+from apps.requests_desk.models import DatasetRequest, RequestStatus, RequestStatusEvent
 
 MAX_EPISODES_PER_REQUEST = 1_000_000
 
@@ -68,3 +68,20 @@ class RequestFilterSerializer(serializers.Serializer):
 class TransitionSerializer(serializers.Serializer):
     to_status = serializers.ChoiceField(choices=RequestStatus.choices)
     comment = serializers.CharField(max_length=2000, allow_blank=True, required=False, default="")
+
+
+class EventAuthorSerializer(serializers.ModelSerializer):
+    """Name and role only: clients see who acted, never staff email addresses or ids."""
+
+    class Meta:
+        model = get_user_model()
+        fields = ["full_name", "role"]
+
+
+class RequestEventSerializer(serializers.ModelSerializer):
+    changed_by = EventAuthorSerializer(read_only=True)
+
+    class Meta:
+        model = RequestStatusEvent
+        fields = ["from_status", "to_status", "changed_by", "changed_at", "comment"]
+        read_only_fields = fields
