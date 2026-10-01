@@ -3,6 +3,7 @@ import uuid
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.db import models
 from django.db.models.functions import Lower
+from django.utils import timezone
 
 
 class Role(models.TextChoices):
@@ -41,6 +42,9 @@ class User(AbstractBaseUser):
     role = models.CharField(max_length=16, choices=Role.choices, default=Role.CLIENT)
     # Deactivate instead of delete: requests and audit events keep pointing at the user.
     is_active = models.BooleanField(default=True)
+    # Tokens issued before this moment are rejected. Moved forward by "log out everywhere",
+    # deactivation, and password or role changes.
+    tokens_valid_after = models.DateTimeField(default=timezone.now)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
