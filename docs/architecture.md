@@ -129,8 +129,8 @@ shape, and **`/health`** answers without authentication so load balancers and up
 
 | Django app | Owns |
 |---|---|
-| `core` | Settings helpers, health check, logging middleware, error handling, shared permissions |
-| `accounts` | Custom user (email login, role), authentication, user management, seed command |
+| `core` | Settings helpers, health check, logging middleware, error handling, shared permissions, `seed` command |
+| `accounts` | Custom user (email login, role), authentication, user management |
 | `catalog` | Robots, episodes, CSV import service, `import_episodes` command, import reports |
 | `requests_desk` | Dataset requests, status workflow and events, assignments |
 | `notifications` | Notification records, inbox endpoints, email delivery, `send_reminders` command |
