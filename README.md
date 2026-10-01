@@ -161,6 +161,11 @@ API container's healthcheck.
 - Query strings are not logged, since they can carry tokens or personal data.
 - `LOG_LEVEL` sets the minimum level (default `INFO`).
 
+**Error reporting:** set `SENTRY_DSN` to send unhandled errors, and `ERROR` log lines such as a detected
+refresh-token theft, to Sentry. Each event carries the request ID and user ID only. Authorization headers,
+cookies, request bodies, query strings and emails are removed before anything leaves the server. Off when
+`SENTRY_DSN` is empty (the local default).
+
 ## Configuration
 
 All configuration is read from environment variables; `.env.example` lists each one. Missing required values

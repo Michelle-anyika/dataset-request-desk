@@ -1,3 +1,4 @@
+import sentry_sdk
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.authentication import JWTAuthentication as BaseJWTAuthentication
 
@@ -38,4 +39,5 @@ class JWTAuthentication(BaseJWTAuthentication):
         user = super().get_user(validated_token)
         if not is_current_session(validated_token, user):
             raise SessionRevoked()
+        sentry_sdk.set_user({"id": str(user.pk)})  # the id only: no email or name in error reports
         return user

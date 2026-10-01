@@ -5,6 +5,8 @@ import re
 import time
 import uuid
 
+import sentry_sdk
+
 REQUEST_ID_HEADER = "X-Request-ID"
 
 # Incoming IDs come from untrusted clients: accept only short, printable tokens (no log injection).
@@ -21,6 +23,7 @@ class RequestLoggingMiddleware:
 
     def __call__(self, request):
         request.request_id = self._request_id(request)
+        sentry_sdk.set_tag("request_id", request.request_id)  # ties an error report to its log line
         started = time.perf_counter()
 
         response = self.get_response(request)
