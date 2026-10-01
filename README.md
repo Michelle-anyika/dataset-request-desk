@@ -57,6 +57,24 @@ pytest
 ```
 </details>
 
+## Authentication
+
+Email and password login with short-lived tokens. Full design and threat model: [docs/security.md](docs/security.md).
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /api/auth/login/` | Returns a 10-minute access token and the user; sets a 12-hour refresh token in an `HttpOnly` cookie |
+| `POST /api/auth/refresh/` | Rotates the refresh cookie and returns a new access token |
+| `POST /api/auth/logout/` | Ends this session |
+| `POST /api/auth/logout-all/` | Ends every session of the current user |
+| `GET /api/auth/me/` | Current user |
+
+Send the access token as `Authorization: Bearer <token>`. Every other endpoint requires it. Logins are throttled per
+IP and per email, passwords are hashed with Argon2id, and reusing an old refresh token ends all of that user's
+sessions.
+
+**API docs:** Swagger UI at <http://localhost:8000/api/docs/> when `API_DOCS_ENABLED` is on (the local default).
+
 ## Operations
 
 **Health check:** `GET /health` (no authentication) returns `200 {"status": "ok", "db": "ok"}`, or

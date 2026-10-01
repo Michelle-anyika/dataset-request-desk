@@ -23,7 +23,7 @@ implements it, so this document doubles as a checklist. Architecture context is 
 | Stolen access token | Access tokens live 10 minutes and only in memory, never in browser storage | #5, #18 |
 | Stolen refresh token (XSS) | Refresh token in an `HttpOnly; Secure; SameSite=Strict` cookie, which JavaScript can't read; strict Content Security Policy | #5, #18, #41 |
 | Replayed refresh token | Rotation on every use; the old token is blacklisted; **reuse of a revoked token revokes all of that user's sessions** | #5 |
-| Session survives deactivation, password or role change | `tokens_valid_after` on the user: every token issued earlier is rejected immediately, access tokens included | #5, #16 |
+| Session survives deactivation, password or role change | A `session_version` on the user is copied into every token; raising it rejects every older token immediately, access tokens included | #5, #16 |
 | Cross-site request forgery | Same-origin API (the frontend proxies `/api`); `SameSite=Strict` cookie scoped to `/api/auth/`; bearer access tokens can't be sent by another site | #5, #18, #25 |
 | Eavesdropping, downgrade to HTTP | HTTPS only: redirect, HSTS (1 year), `Secure` cookies | #41 |
 | Clickjacking, MIME sniffing | `X-Frame-Options: DENY`, `frame-ancestors 'none'`, `X-Content-Type-Options: nosniff` | #41 |
@@ -47,13 +47,20 @@ implements it, so this document doubles as a checklist. Architecture context is 
 | Lifetime | 10 minutes | 12 hours (a working day) |
 | Stored in | Frontend memory only | `HttpOnly; Secure; SameSite=Strict; Path=/api/auth/` cookie |
 | Sent as | `Authorization: Bearer …` | Cookie, only to `/api/auth/refresh/` and `/api/auth/logout/` |
-| Revocation | `tokens_valid_after`, inactive check on every request | Blacklist (rotation, logout) and `tokens_valid_after` |
+| Revocation | `session_version` and inactive check on every request | Blacklist (rotation, logout) and `session_version` |
 
 - **Rotation with reuse detection:** each refresh returns a new refresh token and blacklists the old one. If a
   blacklisted token is presented again, someone has a copy, so **all sessions of that user are revoked** and a
-  security event is logged.
+  security event is logged at `ERROR`, which error tracking turns into an alert.
+  - A reuse **within 10 seconds** of rotation is treated as two browser tabs refreshing at once: refused, but the
+    session survives.
+  - The token's row is **locked** while it is rotated, so two simultaneous refreshes can't both succeed.
+  - The revocation is committed separately from the failed refresh, so raising the error can't roll it back.
+- **Why a version counter, not a timestamp:** the first design compared the token's `iat` with a
+  `tokens_valid_after` timestamp. JWT timestamps have one-second precision, so a token issued in the same second
+  as a revocation survived it (or a fresh login was refused). A counter is exact.
 - **Expired tokens** are rejected by their signed `exp` claim and need no blacklist entry. The daily
-  `flushexpiredtokens` job removes blacklist rows for tokens that have expired anyway.
+  `flushexpiredtokens` job removes blacklist rows for tokens that have expired anyway (scheduler, #34).
 - **Signing key:** `JWT_SIGNING_KEY`, separate from `DJANGO_SECRET_KEY`, so tokens can be rotated (logging everyone
   out) without affecting other signed data.
 
