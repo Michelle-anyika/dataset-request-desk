@@ -76,6 +76,19 @@ before merge.
 - Required checks: CI OK, Conventional commits, Branch naming.
 - PRs are merged with a **merge commit** (not squash), so the red → green → refactor commits stay in history.
 
+## Dependencies
+
+Python dependencies are declared in `backend/requirements.in` (and `requirements-dev.in` for tools) and locked with
+hashes in the matching `.txt` files. After changing an `.in` file, regenerate the locks with the same Python as the
+image:
+
+```bash
+cd backend
+docker run --rm -v "$PWD:/w" -w /w python:3.13-slim sh -c "pip install uv &&   uv pip compile --generate-hashes --python-version 3.13 --python-platform linux -o requirements.txt requirements.in &&   uv pip compile --generate-hashes --python-version 3.13 --python-platform linux -o requirements-dev.txt requirements-dev.in"
+```
+
+Never edit the `.txt` lock files by hand.
+
 ## Local setup
 
 ```bash

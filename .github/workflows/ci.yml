@@ -23,7 +23,8 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
-      - run: pip install pre-commit
+      - name: Install locked tooling
+        run: "pip install --require-hashes --only-binary=:all: -r .github/requirements/ci.txt"
       # Branch naming is checked by pr-checks.yml; this hook would fail on pushes to develop/main.
       - run: SKIP=no-commit-to-branch pre-commit run --all-files --show-diff-on-failure
 
@@ -77,7 +78,7 @@ jobs:
           cache: pip
           cache-dependency-path: backend/requirements*.txt
       - name: Install dependencies
-        run: pip install -r requirements-dev.txt
+        run: "pip install --require-hashes --only-binary=:all: -r requirements-dev.txt"
       - name: Lint
         run: |
           ruff check .
@@ -108,7 +109,7 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - run: npm ci
+      - run: npm ci --ignore-scripts
       - run: npm run lint --if-present
       - run: npm test --if-present
       - run: npm run build
@@ -150,11 +151,31 @@ jobs:
         if: always()
         run: docker compose down --volumes
 
+  # Static analysis and coverage of new code; the job fails if the SonarCloud quality gate fails.
+  sonarcloud:
+    name: SonarCloud
+    needs: [detect, backend]
+    if: needs.detect.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0  # full history for accurate "new code" and blame
+      - uses: actions/download-artifact@v7
+        with:
+          name: backend-coverage
+          path: backend
+      - uses: SonarSource/sonarqube-scan-action@d209202bc7d53ff1cc128f7f907dac145c9d6ae9  # v8.3.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: -Dsonar.qualitygate.wait=true
+
   # Single stable check name for branch protection.
   ci-ok:
     name: CI OK
     if: always()
-    needs: [hygiene, detect, backend, frontend, compose]
+    needs: [hygiene, detect, backend, frontend, compose, sonarcloud]
     runs-on: ubuntu-latest
     steps:
       - name: Fail if any job failed
