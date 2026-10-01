@@ -281,3 +281,25 @@ def test_listing_assignments_uses_a_fixed_number_of_queries(
 
     with django_assert_max_num_queries(3):  # the request (scope), count, page with episodes joined
         operator.get(assignments_url(request))
+
+
+def test_a_race_lost_to_another_operator_is_reported_not_crashed(operator, make_request, monkeypatch):
+    """Two operators assign one episode at once: both pass the pre-check, the database refuses one."""
+    from apps.requests_desk import assignments
+
+    first, second = make_request(), make_request()
+    episode("EP-00001")
+    assign(operator, first, "EP-00001")
+    real_holders, calls = assignments._holders, []
+
+    def misses_the_first_time(episode_ids):
+        calls.append(episode_ids)
+        return {} if len(calls) == 1 else real_holders(episode_ids)
+
+    monkeypatch.setattr(assignments, "_holders", misses_the_first_time)
+
+    response = assign(operator, second, "EP-00001")
+
+    assert response.status_code == 409  # the partial unique index refused it, and it's reported cleanly
+    assert response.json()["error"]["details"] == {"EP-00001": str(first.id)}
+    assert active_ids(second) == []
