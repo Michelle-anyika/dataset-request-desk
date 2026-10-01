@@ -1,6 +1,6 @@
 import io
 
-from django.db.models import Exists, OuterRef
+from django.db.models import Exists, OuterRef, Subquery
 from drf_spectacular.utils import extend_schema
 from rest_framework import exceptions, mixins, status, viewsets
 from rest_framework.decorators import action
@@ -8,8 +8,10 @@ from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 
 from apps.catalog.import_service import ImportFailed, import_episodes
-from apps.catalog.models import ImportBatch, ImportStatus
+from apps.catalog.models import Episode, ImportBatch, ImportStatus
 from apps.catalog.serializers import (
+    EpisodeFilterSerializer,
+    EpisodeSerializer,
     ImportBatchSerializer,
     ImportRowIssueSerializer,
     ImportUploadSerializer,
@@ -67,3 +69,40 @@ class ImportBatchViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, views
         filters.is_valid(raise_exception=True)
         page = self.paginate_queryset(batch.issues.filter(**filters.validated_data))
         return self.get_paginated_response(ImportRowIssueSerializer(page, many=True).data)
+
+
+class EpisodeViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
+    """The episode catalogue, for operators choosing what to assign."""
+
+    permission_classes = [*viewsets.GenericViewSet.permission_classes, IsOperator]
+    serializer_class = EpisodeSerializer
+
+    def get_queryset(self):
+        from apps.requests_desk.models import (
+            Assignment,
+        )  # requests depend on episodes, not the other way round
+
+        active = Assignment.objects.filter(episode=OuterRef("pk"), released_at__isnull=True)
+        # The holding request is looked up in the same SQL query, so a page costs one query, not one per row.
+        queryset = Episode.objects.annotate(assigned_request=Subquery(active.values("request_id")[:1]))
+        if self.action == "list":
+            queryset = self._apply_filters(queryset)
+        return queryset
+
+    def _apply_filters(self, queryset):
+        filters = EpisodeFilterSerializer(data=self.request.query_params)
+        filters.is_valid(raise_exception=True)
+        params = filters.validated_data
+        if params.get("task_name"):
+            queryset = queryset.filter(task_name=params["task_name"])
+        if params.get("quality"):
+            queryset = queryset.filter(quality__in=params["quality"])
+        if params.get("robot_id"):
+            queryset = queryset.filter(robot_id=params["robot_id"])
+        if "available" in params:
+            queryset = queryset.filter(assigned_request__isnull=params["available"] == "true")
+        return queryset.order_by(params.get("ordering", "-recorded_at"), "-id")
+
+    @extend_schema(parameters=[EpisodeFilterSerializer])
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
