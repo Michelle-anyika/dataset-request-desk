@@ -5,6 +5,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from apps.accounts.models import Role
+from apps.core.openapi import error_response
 from apps.core.permissions import IsClient, IsOperator
 from apps.requests_desk import assignments, services, workflow
 from apps.requests_desk.models import DatasetRequest
@@ -69,7 +70,10 @@ class DatasetRequestViewSet(
 
     @extend_schema(
         request=TransitionSerializer,
-        responses={200: DatasetRequestSerializer},
+        responses={
+            200: DatasetRequestSerializer,
+            409: error_response("Not a valid step from the current status, or too few episodes assigned."),
+        },
         description="Move the request through its workflow. Allowed steps depend on status and role.",
     )
     @action(detail=True, methods=["post"], url_path="transitions")
@@ -99,7 +103,10 @@ class DatasetRequestViewSet(
     @extend_schema(
         methods=["POST"],
         request=AssignEpisodesSerializer,
-        responses={201: AssignResultSerializer},
+        responses={
+            201: AssignResultSerializer,
+            409: error_response("The request is not in progress, or an episode is assigned elsewhere."),
+        },
         description="Assign episodes (operators and admins). All or nothing: any problem assigns none.",
     )
     @action(detail=True, methods=["get", "post"], url_path="assignments")
@@ -127,7 +134,9 @@ class DatasetRequestViewSet(
         return self.get_paginated_response(serializer_class(page, many=True).data)
 
     @extend_schema(
-        request=None, responses={204: None}, description="Release an episode (operators and admins)."
+        request=None,
+        responses={204: None, 409: error_response("The request is not in progress.")},
+        description="Release an episode (operators and admins).",
     )
     @action(detail=True, methods=["delete"], url_path=r"assignments/(?P<episode_id>[^/]+)")
     def unassign(self, request, pk=None, episode_id=None):
