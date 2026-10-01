@@ -110,6 +110,14 @@ class TestIdempotency:
         assert episode.quality == "usable"
         assert episode.import_batch == second
 
+    def test_an_update_moves_the_updated_timestamp(self, operator):
+        run(operator, ROW_1)
+        before = Episode.objects.get(episode_id="EP-00001").updated_at
+
+        run(operator, ROW_1.replace(",good", ",usable"))
+
+        assert Episode.objects.get(episode_id="EP-00001").updated_at > before
+
     def test_an_assigned_episode_cannot_be_downgraded_to_bad(self, operator):
         run(operator, ROW_1)
         client = operator.__class__.objects.create_user(email="c@example.com", password="x", full_name="C")
@@ -158,6 +166,15 @@ class TestInvalidFiles:
         assert batch.status == ImportStatus.FAILED
         assert "quality" in batch.error_message
         assert Episode.objects.count() == 0
+
+    def test_header_names_are_matched_case_and_space_insensitively(self, operator):
+        batch = run(
+            operator,
+            ROW_1,
+            header=" Episode_ID,Robot_ID,task_name,RECORDED_AT,duration_seconds,operator_name,Quality",
+        )
+
+        assert batch.created_count == 1
 
     def test_an_empty_file_fails(self, operator):
         with pytest.raises(ImportFailed):
