@@ -360,6 +360,8 @@ The UI shows only the actions allowed for the user's role, but **the server stay
 
 ## 11. Testing strategy (what we test and why)
 
+Full strategy, layers and gates: **[docs/testing.md](docs/testing.md)**.
+
 Priority is what the reviewers named: **authorization, transitions, assignments, import idempotency**.
 
 **Approach: TDD** for everything below except the frontend. Each rule in §7/§8 starts as a failing test, so the
