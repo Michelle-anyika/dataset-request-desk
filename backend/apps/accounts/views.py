@@ -1,22 +1,28 @@
 import logging
 
-from django.contrib.auth import authenticate
+from django.contrib.auth import authenticate, get_user_model
+from django.db.models import Q
 from drf_spectacular.utils import extend_schema
-from rest_framework import status
+from rest_framework import mixins, status, viewsets
 from rest_framework.exceptions import AuthenticationFailed, NotAuthenticated, PermissionDenied, Throttled
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.accounts import sessions, throttling
+from apps.accounts import services, sessions, throttling
 from apps.accounts.audit import email_hash, security_event
 from apps.accounts.authentication import SessionReuseDetected
 from apps.accounts.serializers import (
     AccessTokenSerializer,
     LoginResponseSerializer,
     LoginSerializer,
+    ManagedUserSerializer,
+    UserCreateSerializer,
+    UserFilterSerializer,
     UserSerializer,
+    UserUpdateSerializer,
 )
+from apps.core.permissions import IsAdmin
 
 
 class InvalidCredentials(AuthenticationFailed):
@@ -142,3 +148,60 @@ class MeView(APIView):
     @extend_schema(responses={200: UserSerializer})
     def get(self, request):
         return Response(UserSerializer(request.user).data)
+
+
+class UserViewSet(
+    mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.CreateModelMixin, viewsets.GenericViewSet
+):
+    """Admin user management. Accounts are deactivated, never deleted."""
+
+    permission_classes = [*viewsets.GenericViewSet.permission_classes, IsAdmin]
+    serializer_class = ManagedUserSerializer
+    http_method_names = ["get", "post", "patch", "head", "options"]
+
+    def get_queryset(self):
+        queryset = get_user_model().objects.order_by("email")
+        if self.action != "list":
+            return queryset
+        filters = UserFilterSerializer(data=self.request.query_params)
+        filters.is_valid(raise_exception=True)
+        params = filters.validated_data
+        if "role" in params:
+            queryset = queryset.filter(role=params["role"])
+        if "is_active" in params:
+            queryset = queryset.filter(is_active=params["is_active"] == "true")
+        if params.get("search"):
+            term = params["search"]
+            queryset = queryset.filter(Q(email__icontains=term) | Q(full_name__icontains=term))
+        return queryset
+
+    @extend_schema(parameters=[UserFilterSerializer])
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+
+    @extend_schema(request=UserCreateSerializer, responses={201: ManagedUserSerializer})
+    def create(self, request):
+        payload = UserCreateSerializer(data=request.data)
+        payload.is_valid(raise_exception=True)
+        user = services.create_user(**payload.validated_data)
+        security_event(
+            "admin.user_created", request, user_id=str(request.user.pk), target_user_id=str(user.pk)
+        )
+        return Response(ManagedUserSerializer(user).data, status=status.HTTP_201_CREATED)
+
+    @extend_schema(request=UserUpdateSerializer, responses={200: ManagedUserSerializer})
+    def partial_update(self, request, pk=None):
+        user = self.get_object()
+        payload = UserUpdateSerializer(data=request.data, context={"user": user})
+        payload.is_valid(raise_exception=True)
+        changed = services.update_user(user, actor=request.user, **payload.validated_data)
+        if changed:
+            security_event(
+                "admin.user_updated",
+                request,
+                user_id=str(request.user.pk),
+                target_user_id=str(user.pk),
+                changed_fields=changed,
+            )
+        user.refresh_from_db()
+        return Response(ManagedUserSerializer(user).data)
