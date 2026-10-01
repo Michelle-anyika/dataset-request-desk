@@ -25,6 +25,8 @@ def api_exception_handler(exc, context):
         error = {"code": str(detail.get("code", exc.default_code)), "message": str(detail["detail"])}
     else:
         error = {"code": getattr(detail, "code", None) or exc.default_code, "message": str(detail)}
+        if getattr(exc, "details", None):
+            error["details"] = exc.details
 
     response.data = {"error": error}
     return response
