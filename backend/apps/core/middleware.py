@@ -60,3 +60,19 @@ class RequestLoggingMiddleware:
         if status >= 400:
             return logging.WARNING
         return logging.INFO
+
+
+# API responses are JSON: they need nothing loaded and must never be framed.
+API_CONTENT_SECURITY_POLICY = "default-src 'none'; frame-ancestors 'none'"
+
+
+class ContentSecurityPolicyMiddleware:
+    """Adds the API's Content-Security-Policy unless a view set its own (the Swagger page does)."""
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        response.headers.setdefault("Content-Security-Policy", API_CONTENT_SECURITY_POLICY)
+        return response

@@ -29,7 +29,7 @@ implements it, so this document doubles as a checklist. Architecture context is 
 | Clickjacking, MIME sniffing | `X-Frame-Options: DENY`, `frame-ancestors 'none'`, `X-Content-Type-Options: nosniff` | #41 |
 | SQL injection | ORM or parameterised SQL only, including analytics | all |
 | Oversized or malicious uploads | Size limit, allowed extensions, parsed as data with the `csv` module, never executed; row-level validation | #11, #41 |
-| Unbounded queries (denial of service) | Pagination with a maximum page size; API rate limits for authenticated and anonymous users | #41 |
+| Unbounded queries (denial of service) | Pagination with a maximum page size; API rate limits (anonymous 60/min, users 3,000/hour) counted per worker in memory, so they cost no database queries | #41 |
 | Sensitive files in the image | The Dockerfile copies only the app's folders, never the whole build context | done |
 | Secrets leaked in the repository | Environment variables only; `.env` git-ignored; private-key pre-commit hook; GitHub secret scanning with push protection (enabled) | done |
 | Vulnerable or tampered dependency | **Hash-locked** Python and Node dependencies (`--require-hashes`, `npm ci`), installed from **wheels only** and with **install scripts disabled**, so no package code runs at install time; Dependabot version and security updates; `pip-audit` and `npm audit` in CI | done, #42 |
@@ -112,6 +112,8 @@ JSON events on the `desk.security` logger, with `request_id` and client IP:
 | HSTS | 1 year, include subdomains |
 | Cookies | `Secure`, `HttpOnly` (refresh), `SameSite=Strict` |
 | API responses | `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'`, `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: same-origin`, `Cross-Origin-Opener-Policy: same-origin` |
+| Swagger UI (development only) | Relaxed CSP allowing its jsDelivr assets and inline start-up script; still `frame-ancestors 'none'` |
+| Switch | `HTTPS_ONLY`, **on unless `DEBUG`** (secure by default); `/health` exempt from the redirect for platform health checks |
 | Frontend | `Content-Security-Policy: default-src 'self'` (no inline scripts), same headers as above |
 | CORS | Not needed: the frontend and API share one origin through the `/api` proxy |
 

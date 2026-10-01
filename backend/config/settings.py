@@ -6,6 +6,7 @@ from pathlib import Path
 import dj_database_url
 
 from config.env import env_bool, env_list, env_str
+from config.security import https_settings
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -48,10 +49,12 @@ AUTH_PASSWORD_VALIDATORS = [
 MIDDLEWARE = [
     "apps.core.middleware.RequestLoggingMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "apps.core.middleware.ContentSecurityPolicyMiddleware",
     "django.middleware.common.CommonMiddleware",
     # Protects any non-API form view. DRF views are exempt by design; the cookie endpoints have their own
     # cross-site check (apps.accounts.views.PublicAuthView).
     "django.middleware.csrf.CsrfViewMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -100,6 +103,11 @@ REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "apps.core.exceptions.api_exception_handler",
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_PAGINATION_CLASS": "apps.core.pagination.DefaultPagination",
+    "DEFAULT_THROTTLE_CLASSES": [
+        "apps.core.throttling.AnonBurstThrottle",
+        "apps.core.throttling.UserSustainedThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {"anon": "60/min", "user": "3000/hour"},
     # Proxies in front of the API (e.g. the hosting load balancer): needed to find the real client IP for
     # throttling. 0 locally, where clients connect directly.
     "NUM_PROXIES": int(env_str("TRUSTED_PROXY_COUNT", default="0")),
@@ -110,7 +118,9 @@ CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.db.DatabaseCache",
         "LOCATION": "django_cache",
-    }
+    },
+    # Per-process counters for the API-wide rate limits (apps.core.throttling): no database query per request.
+    "local": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache", "LOCATION": "rate-limits"},
 }
 
 # Tokens (docs/security.md §3): short-lived access token, rotated refresh token in an HttpOnly cookie.
@@ -142,3 +152,9 @@ SPECTACULAR_SETTINGS = {
 
 # Episode import uploads (docs/security.md section 2): bounded size, CSV only.
 IMPORT_MAX_UPLOAD_BYTES = int(env_str("IMPORT_MAX_UPLOAD_BYTES", default=str(20 * 1024 * 1024)))
+
+# Transport security (docs/security.md §5). Secure by default: on unless DEBUG.
+HTTPS_ONLY = env_bool("HTTPS_ONLY", default=not DEBUG)
+globals().update(https_settings(enabled=HTTPS_ONLY))
+SECURE_REDIRECT_EXEMPT = [r"^health$"]  # hosting health checks call it over HTTP inside their network
+X_FRAME_OPTIONS = "DENY"
