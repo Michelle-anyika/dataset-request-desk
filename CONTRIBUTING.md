@@ -47,7 +47,7 @@ locally and in CI.
 
 **Types:** `feat` `fix` `refactor` `perf` `test` `docs` `style` `build` `ci` `chore` `revert`
 
-**Scopes (optional):** `auth` `users` `requests` `episodes` `import` `assignments` `analytics` `api` `core` `db`
+**Scopes (optional):** `auth` `users` `requests` `episodes` `import` `assignments` `analytics` `notifications` `api` `core` `db`
 `ui` `backend` `frontend` `docker` `ci` `cd` `deps` `deps-dev` `release`
 
 ```

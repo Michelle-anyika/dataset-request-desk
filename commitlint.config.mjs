@@ -16,6 +16,7 @@ export default {
         'import',
         'assignments',
         'analytics',
+        'notifications',
         'api',
         'core',
         'db',
