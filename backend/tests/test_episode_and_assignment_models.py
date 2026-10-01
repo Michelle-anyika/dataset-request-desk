@@ -60,7 +60,7 @@ class TestEpisodeConstraints:
 
     def test_quality_must_be_known(self, make_episode):
         with pytest.raises(IntegrityError):
-            make_episode(quality="excellent")
+            make_episode(quality="great")  # short enough to reach the CHECK, not the length limit
 
     def test_robot_must_exist(self):
         # Django's Postgres foreign keys are DEFERRABLE: checked at commit. Check now, as a commit would.
