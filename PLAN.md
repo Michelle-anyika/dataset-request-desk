@@ -207,6 +207,7 @@ Every transition runs in a DB transaction with `SELECT … FOR UPDATE` on the re
 - Bulk assign (`episode_ids: [...]`) is all-or-nothing in one transaction.
 - Delivered requires count ≥ requested (checked inside the transition transaction).
 - Over-assigning (more than requested) is allowed. Decision to record.
+- An episode must be recorded for the request's task (decision #19).
 
 ### 7.4 Notifications and reminders
 
@@ -460,3 +461,5 @@ so domain work is compressed into Thursday and Friday. The board (GitHub Project
 | 16 | `session_version` on the user, copied into every token, instead of only a blacklist | Deactivation, password and role changes end every session at once, access tokens included. Replaced a `tokens_valid_after` timestamp during TDD: JWT `iat` has one-second precision, so same-second tokens escaped revocation |
 | 17 | Login throttling backed by the database cache | Counters shared across gunicorn workers without adding Redis |
 | 18 | Stay on Django 5.2 LTS and Python 3.13 for this release (Dependabot told to ignore Django 6, Python 3.14) | LTS security support to 2028; no major upgrade days before submission |
+| 19 | Episodes must match the request's task to be assigned | The brief only names quality, but delivering "fold towel" clips for a "pick cup" request is never right; both task names are normalised the same way |
+| 20 | Bulk assign is all-or-nothing and reports every problem at once (unknown, bad quality, task mismatch, already held) | An operator fixes the whole selection in one go instead of one error per attempt |

@@ -14,6 +14,7 @@ from django.utils import timezone
 from rest_framework import exceptions, status
 
 from apps.accounts.models import Role
+from apps.requests_desk.assignments import active_count
 from apps.requests_desk.models import DatasetRequest, RequestStatus, RequestStatusEvent
 
 S = RequestStatus
@@ -53,7 +54,7 @@ def _is_owner(user, request) -> bool:
 
 
 def _enough_episodes_assigned(request) -> None:
-    assigned = request.assignments.filter(released_at__isnull=True).count()
+    assigned = active_count(request)
     if assigned < request.episodes_requested:
         raise NotEnoughEpisodes(assigned, request.episodes_requested)
 

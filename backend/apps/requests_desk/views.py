@@ -1,13 +1,18 @@
-from drf_spectacular.utils import extend_schema
-from rest_framework import mixins, viewsets
+from django.db.models import Count, Q
+from drf_spectacular.utils import OpenApiParameter, extend_schema
+from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from apps.accounts.models import Role
-from apps.core.permissions import IsClient
-from apps.requests_desk import services, workflow
+from apps.core.permissions import IsClient, IsOperator
+from apps.requests_desk import assignments, services, workflow
 from apps.requests_desk.models import DatasetRequest
 from apps.requests_desk.serializers import (
+    AssignEpisodesSerializer,
+    AssignmentHistorySerializer,
+    AssignmentSerializer,
+    AssignResultSerializer,
     DatasetRequestSerializer,
     RequestEventSerializer,
     RequestFilterSerializer,
@@ -23,6 +28,8 @@ class DatasetRequestViewSet(
     def get_permissions(self):
         if self.action == "create":
             return [*super().get_permissions(), IsClient()]
+        if self.action == "unassign" or (self.action == "assignments" and self.request.method == "POST"):
+            return [*super().get_permissions(), IsOperator()]
         return super().get_permissions()
 
     def get_queryset(self):
@@ -34,7 +41,9 @@ class DatasetRequestViewSet(
         if getattr(self, "swagger_fake_view", False):  # schema generation has no user
             return DatasetRequest.objects.none()
         user = self.request.user
-        queryset = DatasetRequest.objects.select_related("client")
+        queryset = DatasetRequest.objects.select_related("client").annotate(
+            active_assignment_count=Count("assignments", filter=Q(assignments__released_at__isnull=True))
+        )
         if user.role == Role.CLIENT:
             queryset = queryset.filter(client=user)
         if self.action == "list":
@@ -78,3 +87,49 @@ class DatasetRequestViewSet(
         dataset_request = self.get_object()  # scoped: another client's request is 404
         events = dataset_request.events.select_related("changed_by")
         return Response(RequestEventSerializer(events, many=True).data)
+
+    @extend_schema(
+        methods=["GET"],
+        parameters=[
+            OpenApiParameter("history", bool, description="Staff only: include released assignments.")
+        ],
+        responses={200: AssignmentHistorySerializer(many=True)},
+        description="Episodes assigned to the request. Clients see what is currently assigned to their own.",
+    )
+    @extend_schema(
+        methods=["POST"],
+        request=AssignEpisodesSerializer,
+        responses={201: AssignResultSerializer},
+        description="Assign episodes (operators and admins). All or nothing: any problem assigns none.",
+    )
+    @action(detail=True, methods=["get", "post"], url_path="assignments")
+    def assignments(self, request, pk=None):
+        dataset_request = self.get_object()  # scoped: another client's request is 404
+        if request.method == "POST":
+            payload = AssignEpisodesSerializer(data=request.data)
+            payload.is_valid(raise_exception=True)
+            assigned = assignments.assign_episodes(
+                dataset_request, payload.validated_data["episode_ids"], actor=request.user
+            )
+            result = {
+                "assigned": assigned,
+                "assigned_count": assignments.active_count(dataset_request),
+                "episodes_requested": dataset_request.episodes_requested,
+            }
+            return Response(result, status=status.HTTP_201_CREATED)
+
+        is_staff = IsOperator().has_permission(request, self)
+        rows = dataset_request.assignments.select_related("episode", "assigned_by", "released_by")
+        if not (is_staff and request.query_params.get("history") == "true"):
+            rows = rows.filter(released_at__isnull=True)
+        serializer_class = AssignmentHistorySerializer if is_staff else AssignmentSerializer
+        page = self.paginate_queryset(rows)
+        return self.get_paginated_response(serializer_class(page, many=True).data)
+
+    @extend_schema(
+        request=None, responses={204: None}, description="Release an episode (operators and admins)."
+    )
+    @action(detail=True, methods=["delete"], url_path=r"assignments/(?P<episode_id>[^/]+)")
+    def unassign(self, request, pk=None, episode_id=None):
+        assignments.unassign_episode(self.get_object(), episode_id, actor=request.user)
+        return Response(status=status.HTTP_204_NO_CONTENT)
