@@ -43,7 +43,8 @@ Seeding is safe to repeat: existing accounts are never modified. These passwords
 docker compose run --rm api pytest
 ```
 
-Tests run against PostgreSQL (never SQLite), because the domain rules rely on Postgres features.
+Tests run against PostgreSQL (never SQLite), because the domain rules rely on Postgres features. The full
+testing strategy (unit, integration, fuzzing, end-to-end, security and load) is in [docs/testing.md](docs/testing.md).
 
 <details>
 <summary>Without Docker (backend only, needs a local PostgreSQL)</summary>
