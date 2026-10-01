@@ -23,6 +23,7 @@ INSTALLED_APPS = [
     "apps.core",
     "apps.accounts",
     "apps.catalog",
+    "apps.requests_desk",
 ]
 
 AUTH_USER_MODEL = "accounts.User"
@@ -47,6 +48,9 @@ MIDDLEWARE = [
     "apps.core.middleware.RequestLoggingMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.middleware.common.CommonMiddleware",
+    # Protects any non-API form view. DRF views are exempt by design; the cookie endpoints have their own
+    # cross-site check (apps.accounts.views.PublicAuthView).
+    "django.middleware.csrf.CsrfViewMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -94,6 +98,7 @@ REST_FRAMEWORK = {
     "DEFAULT_PARSER_CLASSES": ["rest_framework.parsers.JSONParser"],
     "EXCEPTION_HANDLER": "apps.core.exceptions.api_exception_handler",
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_PAGINATION_CLASS": "apps.core.pagination.DefaultPagination",
     # Proxies in front of the API (e.g. the hosting load balancer): needed to find the real client IP for
     # throttling. 0 locally, where clients connect directly.
     "NUM_PROXIES": int(env_str("TRUSTED_PROXY_COUNT", default="0")),

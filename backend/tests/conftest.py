@@ -27,3 +27,21 @@ def make_user(db):
         return get_user_model().objects.create_user(email=email, password=password, role=role, **fields)
 
     return make
+
+
+@pytest.fixture
+def api_as(make_user):
+    """An API client authenticated as a new user with the given role.
+
+    Skips the login flow, which is covered by the test_auth_* modules.
+    """
+
+    def as_role(role="client", **fields):
+        fields.setdefault("email", f"{role}-{get_user_model().objects.count() + 1}@example.com")
+        user = make_user(role=role, **fields)
+        client = APIClient()
+        client.force_authenticate(user)
+        client.user = user
+        return client
+
+    return as_role

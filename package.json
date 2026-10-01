@@ -1,0 +1,9 @@
+{
+  "name": "dataset-request-desk-tooling",
+  "private": true,
+  "description": "Repository tooling only (commit message linting). The frontend has its own package.json.",
+  "devDependencies": {
+    "@commitlint/cli": "21.2.3",
+    "@commitlint/config-conventional": "21.2.3"
+  }
+}
