@@ -63,3 +63,8 @@ class RequestFilterSerializer(serializers.Serializer):
         required=False, help_text="Operators and admins only; ignored for clients."
     )
     ordering = serializers.ChoiceField(choices=ORDERINGS, required=False)
+
+
+class TransitionSerializer(serializers.Serializer):
+    to_status = serializers.ChoiceField(choices=RequestStatus.choices)
+    comment = serializers.CharField(max_length=2000, allow_blank=True, required=False, default="")

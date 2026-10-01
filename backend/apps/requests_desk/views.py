@@ -1,11 +1,17 @@
 from drf_spectacular.utils import extend_schema
 from rest_framework import mixins, viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
 
 from apps.accounts.models import Role
 from apps.core.permissions import IsClient
-from apps.requests_desk import services
+from apps.requests_desk import services, workflow
 from apps.requests_desk.models import DatasetRequest
-from apps.requests_desk.serializers import DatasetRequestSerializer, RequestFilterSerializer
+from apps.requests_desk.serializers import (
+    DatasetRequestSerializer,
+    RequestFilterSerializer,
+    TransitionSerializer,
+)
 
 
 class DatasetRequestViewSet(
@@ -50,3 +56,16 @@ class DatasetRequestViewSet(
 
     def perform_create(self, serializer):
         serializer.instance = services.submit_request(self.request.user, **serializer.validated_data)
+
+    @extend_schema(
+        request=TransitionSerializer,
+        responses={200: DatasetRequestSerializer},
+        description="Move the request through its workflow. Allowed steps depend on status and role.",
+    )
+    @action(detail=True, methods=["post"], url_path="transitions")
+    def transitions(self, request, pk=None):
+        dataset_request = self.get_object()  # scoped: another client's request is 404
+        serializer = TransitionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        updated = workflow.transition(dataset_request, actor=request.user, **serializer.validated_data)
+        return Response(DatasetRequestSerializer(updated).data)
