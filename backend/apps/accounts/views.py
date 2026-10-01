@@ -1,11 +1,11 @@
 from django.contrib.auth import authenticate
 from rest_framework import status
-from rest_framework.exceptions import AuthenticationFailed, NotAuthenticated
+from rest_framework.exceptions import AuthenticationFailed, NotAuthenticated, Throttled
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.accounts import sessions
+from apps.accounts import sessions, throttling
 from apps.accounts.serializers import LoginSerializer, UserSerializer
 
 
@@ -27,15 +27,24 @@ class PublicAuthView(APIView):
 
 
 class LoginView(PublicAuthView):
+    throttle_classes = [throttling.LoginRateThrottle]
+
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        email, password = serializer.validated_data["email"], serializer.validated_data["password"]
+
+        wait = throttling.lockout_seconds(email)
+        if wait is not None:
+            raise Throttled(wait=wait)
+
         # Django's backend also hashes for unknown emails, so timing doesn't reveal which accounts exist,
         # and it refuses inactive users.
-        credentials = serializer.validated_data
-        user = authenticate(request, email=credentials["email"], password=credentials["password"])
+        user = authenticate(request, email=email, password=password)
         if user is None:
+            throttling.record_failure(email)
             raise InvalidCredentials()
+        throttling.clear_failures(email)
 
         response = Response({"user": UserSerializer(user).data})
         response.data["access"] = sessions.start_session(user, response)

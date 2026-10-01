@@ -80,6 +80,17 @@ REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
     "DEFAULT_PARSER_CLASSES": ["rest_framework.parsers.JSONParser"],
     "EXCEPTION_HANDLER": "apps.core.exceptions.api_exception_handler",
+    # Proxies in front of the API (e.g. the hosting load balancer): needed to find the real client IP for
+    # throttling. 0 locally, where clients connect directly.
+    "NUM_PROXIES": int(env_str("TRUSTED_PROXY_COUNT", default="0")),
+}
+
+# Shared by all workers and containers: login throttling counters must not be per process.
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "LOCATION": "django_cache",
+    }
 }
 
 # Tokens (docs/security.md §3): short-lived access token, rotated refresh token in an HttpOnly cookie.
