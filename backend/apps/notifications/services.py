@@ -1,8 +1,9 @@
 """Creating notifications and sending their emails (PLAN.md §7.4).
 
 Status-change notifications are created inside the workflow's transaction, so a notification exists exactly
-when its status change does. Emails go out only after the commit: a rolled-back change never emails anyone.
-A failed email is logged and left with ``emailed_at`` empty, and ``send_reminders`` retries it.
+when its status change does. Emails are an outbox: the request only records them, and the scheduler sends
+pending ones every minute. A request never waits for a mail server, a rolled-back change never emails anyone,
+and a failed send stays pending (``emailed_at`` empty) until the next run.
 """
 
 import logging
@@ -10,7 +11,6 @@ import logging
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
-from django.db import transaction
 from django.utils import timezone
 
 from apps.accounts.models import Role
@@ -54,12 +54,14 @@ def notify_status_change(request, event) -> None:
     else:
         return
 
-    created = Notification.objects.bulk_create(
+    Notification.objects.bulk_create(
         [Notification(recipient=user, request=request, event=event, kind=kind) for user in recipients]
     )
-    to_email = [n.pk for n in created if n.kind in EMAIL_KINDS]
-    if to_email:
-        transaction.on_commit(lambda: send_emails(Notification.objects.filter(pk__in=to_email)))
+
+
+def send_pending_emails() -> int:
+    """Send every notification email not sent yet (the outbox). Returns how many were sent."""
+    return send_emails(Notification.objects.filter(kind__in=EMAIL_KINDS, emailed_at__isnull=True))
 
 
 def send_emails(notifications) -> int:

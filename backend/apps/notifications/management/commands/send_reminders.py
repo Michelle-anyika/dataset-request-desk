@@ -6,9 +6,7 @@ from apps.notifications.reminders import send_reminders
 
 
 class Command(BaseCommand):
-    help = (
-        "Send review reminders, escalations and deadline warnings; retry unsent emails. Safe to run hourly."
-    )
+    help = "Reminders, escalations, deadline warnings and pending emails. Safe to run every minute."
 
     def handle(self, *args, **options):
         report = send_reminders(now=timezone.now())
@@ -16,5 +14,5 @@ class Command(BaseCommand):
         call_command("flushexpiredtokens", verbosity=0)
         self.stdout.write(
             f"{report.reminders} reminders, {report.escalations} escalations, "
-            f"{report.deadline_warnings} deadline warnings, {report.emails_retried} emails retried."
+            f"{report.deadline_warnings} deadline warnings, {report.emails_sent} emails sent."
         )
