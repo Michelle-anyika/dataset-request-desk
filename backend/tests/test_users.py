@@ -23,7 +23,7 @@ def test_password_is_stored_hashed():
     user = User.objects.create_user(email="ops@example.com", password="s3cret-pass", full_name="Olu Operator")
 
     assert user.password != "s3cret-pass"
-    assert user.password.startswith("pbkdf2_sha256$")
+    assert user.password.startswith("argon2$")
     assert user.check_password("s3cret-pass")
 
 

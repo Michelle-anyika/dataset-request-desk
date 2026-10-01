@@ -449,6 +449,6 @@ so domain work is compressed into Thursday and Friday. The board (GitHub Project
 | 13 | Errors pushed to Sentry, uptime monitored on `/health` | Logs explain problems but nobody reads them to *find* problems |
 | 14 | Bulk paths reuse single-record services | Bulk data can't bypass the rules |
 | 15 | Refresh rotation with reuse detection: a reused revoked token revokes all the user's sessions | A copied refresh token is detected the first time either party uses it |
-| 16 | `tokens_valid_after` on the user instead of only a blacklist | Deactivation, password and role changes end every session at once, access tokens included |
+| 16 | `session_version` on the user, copied into every token, instead of only a blacklist | Deactivation, password and role changes end every session at once, access tokens included. Replaced a `tokens_valid_after` timestamp during TDD: JWT `iat` has one-second precision, so same-second tokens escaped revocation |
 | 17 | Login throttling backed by the database cache | Counters shared across gunicorn workers without adding Redis |
 | 18 | Stay on Django 5.2 LTS and Python 3.13 for this release (Dependabot told to ignore Django 6, Python 3.14) | LTS security support to 2028; no major upgrade days before submission |

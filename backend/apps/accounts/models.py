@@ -41,6 +41,9 @@ class User(AbstractBaseUser):
     role = models.CharField(max_length=16, choices=Role.choices, default=Role.CLIENT)
     # Deactivate instead of delete: requests and audit events keep pointing at the user.
     is_active = models.BooleanField(default=True)
+    # Copied into every token. Raising it ("log out everywhere", deactivation, password or role change)
+    # makes every existing token invalid at once, access tokens included.
+    session_version = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

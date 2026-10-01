@@ -67,6 +67,7 @@ jobs:
     env:
       DATABASE_URL: postgres://desk:desk@localhost:5432/desk
       DJANGO_SECRET_KEY: ci-only-not-a-secret
+      JWT_SIGNING_KEY: ci-only-jwt-signing-key-not-a-secret-value
       DJANGO_DEBUG: "false"
     steps:
       - uses: actions/checkout@v7
@@ -83,6 +84,8 @@ jobs:
           ruff format --check .
       - name: Check for missing migrations
         run: python manage.py makemigrations --check --dry-run
+      - name: Validate the OpenAPI schema (no warnings allowed)
+        run: python manage.py spectacular --validate --fail-on-warn --file /tmp/schema.yml
       - name: Tests
         run: pytest --cov --cov-report=xml --cov-report=term
       - uses: actions/upload-artifact@v7
@@ -128,6 +131,12 @@ jobs:
           test "$body" = '{"status": "ok", "db": "ok"}'
       - name: Entrypoint applied all migrations
         run: docker compose exec -T api python manage.py migrate --check
+      - name: Seeded admin can log in and read their profile
+        run: |
+          login=$(curl --fail --silent --show-error --cookie-jar cookies.txt             -H "Content-Type: application/json"             -d '{"email": "admin@example.com", "password": "admin123"}'             http://localhost:8000/api/auth/login/)
+          access=$(echo "$login" | python3 -c 'import json, sys; print(json.load(sys.stdin)["access"])')
+          grep -q refresh_token cookies.txt
+          curl --fail --silent --show-error -H "Authorization: Bearer $access" http://localhost:8000/api/auth/me/             | grep -q '"role":"admin"'
       - name: Demo data was seeded, and seeding again changes nothing
         run: |
           out=$(docker compose exec -T api python manage.py seed)

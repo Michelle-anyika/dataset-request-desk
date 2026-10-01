@@ -28,6 +28,7 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER:-desk}:${POSTGRES_PASSWORD:-desk}@db:5432/${POSTGRES_DB:-desk}
       DJANGO_DEBUG: ${DJANGO_DEBUG:-true}
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-local-dev-only-not-a-secret}
+      JWT_SIGNING_KEY: ${JWT_SIGNING_KEY:-local-dev-only-jwt-signing-key-not-a-secret}
       DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,api}
       SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
       # The app runs as a non-root user that cannot write to /app (intended), so pytest's cache is off here.
