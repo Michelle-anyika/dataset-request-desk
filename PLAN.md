@@ -26,7 +26,8 @@ honest 70% beats a sprawling 100%"*.
 | Layer | Choice | Why |
 |---|---|---|
 | Backend | **Python 3.13, Django 5.2 LTS, Django REST Framework** | Migrations, auth and password hashing built in; familiar |
-| Auth | **djangorestframework-simplejwt** (access 15 min, refresh 1 day) | Stateless; works across the Vercel ↔ Render domains |
+| Auth | **djangorestframework-simplejwt**: access 10 min (memory), refresh 12 h (HttpOnly cookie, rotated, blacklisted) | Short-lived bearer tokens; revocable sessions. Design in [docs/security.md](docs/security.md) |
+| Passwords | **Argon2id** (`argon2-cffi`), PBKDF2 fallback | OWASP-recommended hashing; old hashes upgrade on login |
 | API docs | **drf-spectacular** (OpenAPI, Swagger UI at `/api/docs/`) | Reviewers can explore the API |
 | Filtering | **django-filter** | Episode list filters (task, quality, robot, availability) |
 | Database | **PostgreSQL 16** | `percentile_cont` for median, partial unique indexes, `jsonb` |
@@ -54,9 +55,11 @@ honest 70% beats a sprawling 100%"*.
 Full diagrams in **[docs/architecture.md](docs/architecture.md)**: system context, containers, backend components,
 request lifecycle, status workflow, CSV import pipeline, deployment and delivery pipeline.
 
-**Where state lives:** all business state is in PostgreSQL. The API is stateless (JWT), so any number of API
-containers can run. The frontend holds only UI state; the access token is kept in memory and the refresh token in
-`localStorage` (trade-off discussed in NOTES).
+**Where state lives:** all business state is in PostgreSQL, including the refresh-token blacklist and the shared
+throttle counters (database cache). The API is otherwise stateless, so any number of API containers can run. The
+frontend holds only UI state and the short-lived access token, in memory; the refresh token is an `HttpOnly` cookie.
+
+**Security** design, threat model and OWASP mapping: [docs/security.md](docs/security.md).
 
 ### Repository layout
 
@@ -298,6 +301,7 @@ bulk data follows exactly the same rules (for example, an imported request can't
 |---|---|---|
 | GET | `/health` | public (checks DB) |
 | POST | `/api/auth/login/`, `/api/auth/refresh/` | public |
+| POST | `/api/auth/logout/`, `/api/auth/logout-all/` | any |
 | GET | `/api/auth/me/` | any |
 | GET/POST | `/api/users/` | admin |
 | PATCH | `/api/users/{id}/` (role, is_active, name) | admin |
@@ -437,10 +441,14 @@ so domain work is compressed into Thursday and Friday. The board (GitHub Project
 | 5 | Naive CSV timestamps = UTC; `DD/MM/YYYY` day-first | Stated assumption |
 | 6 | Median uses first delivery | Rework doesn't hide slow first delivery |
 | 7 | UUID for users/requests, bigint for episodes | Non-guessable URLs; compact high-volume index |
-| 8 | JWT in memory + refresh in localStorage | Cross-domain deploy; XSS risk acknowledged, mitigated by CSP + short access TTL |
+| 8 | Access token in memory; refresh token in an `HttpOnly; SameSite=Strict` cookie; API served same-origin through an `/api` proxy | JavaScript can't read the refresh token, so XSS can't steal a session; same origin avoids third-party cookie blocking and CORS (revised from `localStorage`) |
 | 9 | One repository (monorepo) for backend and frontend | Brief asks for one repo and `docker compose up` from a clean clone; API + UI change in one PR; Render/Vercel deploy by root directory |
 | 10 | Notifications and reminders, though not in the brief | A delivery nobody reviews, or a missed deadline, would otherwise stall silently |
 | 11 | Email as well as in-app for client-facing events | A client who forgets doesn't log in; email reaches them |
 | 12 | No auto-accept after reminders; hand over to the delivering operator | Accepting data is a business decision the client must make |
 | 13 | Errors pushed to Sentry, uptime monitored on `/health` | Logs explain problems but nobody reads them to *find* problems |
 | 14 | Bulk paths reuse single-record services | Bulk data can't bypass the rules |
+| 15 | Refresh rotation with reuse detection: a reused revoked token revokes all the user's sessions | A copied refresh token is detected the first time either party uses it |
+| 16 | `tokens_valid_after` on the user instead of only a blacklist | Deactivation, password and role changes end every session at once, access tokens included |
+| 17 | Login throttling backed by the database cache | Counters shared across gunicorn workers without adding Redis |
+| 18 | Stay on Django 5.2 LTS and Python 3.13 for this release (Dependabot told to ignore Django 6, Python 3.14) | LTS security support to 2028; no major upgrade days before submission |

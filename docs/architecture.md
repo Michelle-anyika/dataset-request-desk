@@ -7,7 +7,8 @@ built and deployed.
 
 Diagrams are written in [Mermaid](https://mermaid.js.org) so they are versioned and reviewed with
 the code. The data model is in [erd.dbml](erd.dbml) (render at [dbdiagram.io](https://dbdiagram.io)).
-The reasoning behind each choice is in the decision log in [PLAN.md](../PLAN.md#14-decision-log-for-notesmd).
+The reasoning behind each choice is in the decision log in [PLAN.md](../PLAN.md#14-decision-log-for-notesmd), and
+the threat model and security controls are in [security.md](security.md).
 
 ## 1. System context
 
@@ -63,7 +64,7 @@ flowchart LR
     uptime[["<b>Uptime monitor</b><br/>calls /health"]]
 
     user -- "HTTPS" --> web
-    web -- "JSON over HTTPS<br/>Bearer JWT" --> api
+    web -- "JSON over HTTPS, same origin via /api proxy<br/>Bearer access token, HttpOnly refresh cookie" --> api
     api -- "SQL" --> db
     scheduler -- "SQL" --> db
     cli -- "SQL" --> db
@@ -99,7 +100,7 @@ management commands share exactly the same logic. The database is the last line 
 flowchart TB
     http(["HTTP request"]) --> mw
     mw["<b>Middleware</b><br/>request ID · JSON access log · security headers · CORS"]
-    mw --> authn["<b>Authentication</b><br/>SimpleJWT · rejects inactive users"]
+    mw --> authn["<b>Authentication</b><br/>SimpleJWT · rejects inactive users and revoked sessions"]
     authn --> perms["<b>Permission classes</b><br/>role checks · ownership checks"]
     perms --> views["<b>Views and serializers</b><br/>input validation · response shape · pagination"]
     views --> services
