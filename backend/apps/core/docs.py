@@ -21,5 +21,20 @@ class SchemaView(DocsEnabledMixin, SpectacularAPIView):
     pass
 
 
+# Development only (docs are off in production): Swagger UI loads its assets from jsDelivr and starts with an
+# inline script.
+DOCS_CONTENT_SECURITY_POLICY = (
+    "default-src 'none'; "
+    "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+    "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+    "img-src 'self' data: https://cdn.jsdelivr.net; "
+    "connect-src 'self'; "
+    "frame-ancestors 'none'"
+)
+
+
 class SwaggerView(DocsEnabledMixin, SpectacularSwaggerView):
-    pass
+    def finalize_response(self, request, response, *args, **kwargs):
+        response = super().finalize_response(request, response, *args, **kwargs)
+        response["Content-Security-Policy"] = DOCS_CONTENT_SECURITY_POLICY
+        return response

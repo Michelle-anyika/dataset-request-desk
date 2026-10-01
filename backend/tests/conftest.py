@@ -15,6 +15,18 @@ def fast_password_hashing(request, settings):
         settings.PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
 
 
+@pytest.fixture(autouse=True)
+def plain_http_and_fresh_rate_limits(settings):
+    """The test client speaks plain HTTP, and each test starts with untouched in-memory rate-limit counters.
+
+    Tests that check the HTTPS redirect turn it back on themselves.
+    """
+    from django.core.cache import caches
+
+    settings.SECURE_SSL_REDIRECT = False
+    caches["local"].clear()
+
+
 @pytest.fixture
 def api_client():
     return APIClient()
