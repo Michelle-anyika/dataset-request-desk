@@ -2,8 +2,10 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from rest_framework import serializers
 
+from apps.catalog.models import Episode
 from apps.catalog.normalise import normalise_task_name
-from apps.requests_desk.models import DatasetRequest, RequestStatus, RequestStatusEvent
+from apps.requests_desk.assignments import MAX_EPISODES_PER_CALL, active_count
+from apps.requests_desk.models import Assignment, DatasetRequest, RequestStatus, RequestStatusEvent
 
 MAX_EPISODES_PER_REQUEST = 1_000_000
 
@@ -18,6 +20,9 @@ class DatasetRequestSerializer(serializers.ModelSerializer):
     client = RequestClientSerializer(read_only=True)
     episodes_requested = serializers.IntegerField(min_value=1, max_value=MAX_EPISODES_PER_REQUEST)
     notes = serializers.CharField(max_length=2000, allow_blank=True, required=False)
+    assigned_count = serializers.SerializerMethodField(
+        help_text="Episodes currently assigned to the request."
+    )
 
     class Meta:
         model = DatasetRequest
@@ -26,6 +31,7 @@ class DatasetRequestSerializer(serializers.ModelSerializer):
             "client",
             "task_name",
             "episodes_requested",
+            "assigned_count",
             "deadline",
             "notes",
             "status",
@@ -33,6 +39,11 @@ class DatasetRequestSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = ["id", "client", "status", "status_changed_at", "created_at"]
+
+    def get_assigned_count(self, obj) -> int:
+        # Lists annotate the count in SQL (no query per row); single objects fall back to one query.
+        annotated = getattr(obj, "active_assignment_count", None)
+        return annotated if annotated is not None else active_count(obj)
 
     def validate_task_name(self, value):
         value = normalise_task_name(value)
@@ -84,4 +95,45 @@ class RequestEventSerializer(serializers.ModelSerializer):
     class Meta:
         model = RequestStatusEvent
         fields = ["from_status", "to_status", "changed_by", "changed_at", "comment"]
+        read_only_fields = fields
+
+
+class AssignEpisodesSerializer(serializers.Serializer):
+    episode_ids = serializers.ListField(
+        child=serializers.CharField(max_length=32), allow_empty=False, max_length=MAX_EPISODES_PER_CALL
+    )
+
+
+class AssignResultSerializer(serializers.Serializer):
+    assigned = serializers.ListField(child=serializers.CharField())
+    assigned_count = serializers.IntegerField()
+    episodes_requested = serializers.IntegerField()
+
+
+class AssignedEpisodeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Episode
+        fields = ["episode_id", "robot_id", "task_name", "recorded_at", "duration_seconds", "quality"]
+        read_only_fields = fields
+
+
+class AssignmentSerializer(serializers.ModelSerializer):
+    """What a client sees: the episodes they are getting."""
+
+    episode = AssignedEpisodeSerializer(read_only=True)
+
+    class Meta:
+        model = Assignment
+        fields = ["episode", "assigned_at"]
+        read_only_fields = fields
+
+
+class AssignmentHistorySerializer(AssignmentSerializer):
+    """What staff see: including released assignments and who made each change."""
+
+    assigned_by = EventAuthorSerializer(read_only=True)
+    released_by = EventAuthorSerializer(read_only=True)
+
+    class Meta(AssignmentSerializer.Meta):
+        fields = ["episode", "assigned_at", "assigned_by", "released_at", "released_by"]
         read_only_fields = fields
