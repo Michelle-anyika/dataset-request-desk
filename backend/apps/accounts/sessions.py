@@ -4,6 +4,8 @@ from django.conf import settings
 from django.contrib.auth.models import update_last_login
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from apps.accounts.authentication import SESSION_VERSION_CLAIM
+
 REFRESH_COOKIE = "refresh_token"
 REFRESH_COOKIE_PATH = "/api/auth/"  # the browser only sends it to the auth endpoints
 
@@ -11,6 +13,7 @@ REFRESH_COOKIE_PATH = "/api/auth/"  # the browser only sends it to the auth endp
 def start_session(user, response) -> str:
     """Issue a new token pair: the refresh token goes into the cookie, the access token is returned."""
     refresh = RefreshToken.for_user(user)  # also recorded as an outstanding token, so it can be revoked
+    refresh[SESSION_VERSION_CLAIM] = user.session_version  # copied into the access token below
     set_refresh_cookie(response, str(refresh))
     update_last_login(None, user)
     return str(refresh.access_token)

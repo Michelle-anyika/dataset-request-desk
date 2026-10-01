@@ -1,7 +1,4 @@
-from datetime import timedelta
-
 import pytest
-from django.utils import timezone
 from rest_framework_simplejwt.tokens import AccessToken
 
 from tests.conftest import DEFAULT_PASSWORD
@@ -116,20 +113,20 @@ class TestAccessToken:
 
         assert api_client.get(ME).status_code == 401
 
-    def test_tokens_issued_before_revocation_are_rejected(self, api_client, make_user):
+    def test_tokens_from_a_revoked_session_are_rejected_immediately(self, api_client, make_user):
         user = make_user(email="client-a@example.com")
         bearer(api_client, login(api_client, "client-a@example.com").json()["access"])
 
-        user.tokens_valid_after = timezone.now() + timedelta(seconds=5)
+        user.session_version += 1  # what revocation does; exact, unlike comparing one-second timestamps
         user.save()
 
         response = api_client.get(ME)
         assert response.status_code == 401
         assert response.json()["error"]["code"] == "session_revoked"
 
-    def test_tokens_issued_after_revocation_are_accepted(self, api_client, make_user):
+    def test_logging_in_again_after_revocation_works(self, api_client, make_user):
         user = make_user(email="client-a@example.com")
-        user.tokens_valid_after = timezone.now() - timedelta(minutes=1)
+        user.session_version = 3
         user.save()
 
         bearer(api_client, login(api_client, "client-a@example.com").json()["access"])

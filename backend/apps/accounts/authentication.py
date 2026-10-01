@@ -1,20 +1,17 @@
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.authentication import JWTAuthentication as BaseJWTAuthentication
 
+SESSION_VERSION_CLAIM = "sv"
+
 
 class SessionRevoked(AuthenticationFailed):
     default_detail = "Your session has ended. Please log in again."
     default_code = "session_revoked"
 
 
-def issued_before_revocation(issued_at: int | None, user) -> bool:
-    """True when a token predates the user's ``tokens_valid_after``.
-
-    JWT ``iat`` has one-second precision, so the comparison is made in whole seconds: a token issued
-    within the same second as a revocation is accepted, rather than rejecting a fresh login made
-    straight after it.
-    """
-    return issued_at is None or int(issued_at) < int(user.tokens_valid_after.timestamp())
+def is_current_session(token, user) -> bool:
+    """A token is only valid for the session version it was issued with."""
+    return token.get(SESSION_VERSION_CLAIM) == user.session_version
 
 
 class JWTAuthentication(BaseJWTAuthentication):
@@ -26,6 +23,6 @@ class JWTAuthentication(BaseJWTAuthentication):
 
     def get_user(self, validated_token):
         user = super().get_user(validated_token)
-        if issued_before_revocation(validated_token.get("iat"), user):
+        if not is_current_session(validated_token, user):
             raise SessionRevoked()
         return user
