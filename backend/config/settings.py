@@ -5,6 +5,7 @@ from pathlib import Path
 
 import dj_database_url
 
+from apps.core.monitoring import init_error_reporting
 from config.env import env_bool, env_list, env_str
 from config.security import https_settings
 
@@ -172,3 +173,10 @@ EMAIL_TIMEOUT = 10  # seconds: a slow mail server must not hold up a worker
 
 # Links in emails point at the web app.
 FRONTEND_URL = env_str("FRONTEND_URL", default="http://localhost:5173")
+
+# Error reporting (apps.core.monitoring): off unless a DSN is configured.
+init_error_reporting(
+    dsn=env_str("SENTRY_DSN", default=""),
+    environment=env_str("SENTRY_ENVIRONMENT", default="local"),
+    release=env_str("RELEASE", default=""),
+)
