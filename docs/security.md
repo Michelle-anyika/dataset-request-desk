@@ -32,8 +32,8 @@ implements it, so this document doubles as a checklist. Architecture context is 
 | Unbounded queries (denial of service) | Pagination with a maximum page size; API rate limits (anonymous 60/min, users 3,000/hour) counted per worker in memory, so they cost no database queries | #41 |
 | Sensitive files in the image | The Dockerfile copies only the app's folders, never the whole build context | done |
 | Secrets leaked in the repository | Environment variables only; `.env` git-ignored; private-key pre-commit hook; GitHub secret scanning with push protection (enabled) | done |
-| Vulnerable or tampered dependency | **Hash-locked** Python and Node dependencies (`--require-hashes`, `npm ci`), installed from **wheels only** and with **install scripts disabled**, so no package code runs at install time; Dependabot version and security updates; `pip-audit` and `npm audit` in CI | done, #42 |
-| Insecure code pattern | Ruff security rules (Bandit) and CodeQL in CI | #42 |
+| Vulnerable or tampered dependency | **Hash-locked** Python and Node dependencies (`--require-hashes`, `npm ci`), installed from **wheels only** and with **install scripts disabled**, so no package code runs at install time; Dependabot version and security updates; `pip-audit` on every lock file and `npm audit` in CI | done |
+| Insecure code pattern | Ruff security rules (Bandit) on all code; CodeQL `security-extended` for Python and the workflows, on every PR and weekly | done |
 | Sensitive data in logs | No query strings, bodies, tokens or passwords logged; emails in security events are hashed; Sentry without default PII | #3, #5, #32 |
 | Misconfigured production | `DEBUG` off; `manage.py check --deploy` fails CI on any warning; separate JWT signing key | #41 |
 | Untraceable actions | Append-only status events (who, when); security audit log for authentication events with request ID | #5, #10 |

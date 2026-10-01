@@ -14,8 +14,8 @@ defect, vulnerability or performance regression is found on a pull request or on
 | Coverage gate | Untested code being merged | pytest-cov, fail under 90% | every PR | #45 |
 | Query budgets | N+1 queries and other database performance bugs | `django_assert_max_num_queries` | every PR | #45 |
 | Smoke | The system not starting, migrating, seeding or logging in from a clean checkout | `docker compose up --wait` + curl | every PR | ✅ |
-| Static security | Insecure code patterns | Ruff Bandit rules, CodeQL | every PR | #42 |
-| Dependencies | Known-vulnerable packages | Dependabot, pip-audit, npm audit | every PR, daily | ✅ / #42 |
+| Static security | Insecure code patterns | Ruff Bandit rules (`S`), CodeQL (`security-extended`, Python and workflows) | every PR, weekly | ✅ |
+| Dependencies | Known-vulnerable packages | Dependabot, `pip-audit` on every lock file, `npm audit` | every PR, daily | ✅ |
 | Code quality | Duplication, complexity, code smells, coverage on new code | SonarCloud | every PR | #17 |
 | End-to-end | Broken user journeys in a real browser | Playwright against the compose stack | merge to `develop`, nightly | #46 |
 | Accessibility | Screens that can't be used with assistive technology | axe (in Playwright) | merge to `develop`, nightly | #46 |

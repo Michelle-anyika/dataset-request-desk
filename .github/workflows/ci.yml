@@ -28,6 +28,29 @@ jobs:
       # Branch naming is checked by pr-checks.yml; this hook would fail on pushes to develop/main.
       - run: SKIP=no-commit-to-branch pre-commit run --all-files --show-diff-on-failure
 
+  # Known vulnerabilities in pinned dependencies (backend, and the repository's own tooling).
+  dependency-audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - name: Install locked tooling
+        run: "pip install --require-hashes --only-binary=:all: -r .github/requirements/ci.txt"
+      - name: Audit Python dependencies
+        run: |
+          for lock in backend/requirements.txt backend/requirements-dev.txt .github/requirements/ci.txt; do
+            echo "== $lock"
+            pip-audit --progress-spinner off --strict --disable-pip --require-hashes -r "$lock"
+          done
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - name: Audit repository tooling (npm)
+        run: npm audit --audit-level=high
+
   # Backend/frontend jobs only run once their folder exists, so CI is green from the first commit.
   detect:
     name: Detect components
@@ -188,7 +211,7 @@ jobs:
   ci-ok:
     name: CI OK
     if: always()
-    needs: [hygiene, detect, backend, frontend, compose, sonarcloud]
+    needs: [hygiene, dependency-audit, detect, backend, frontend, compose, sonarcloud]
     runs-on: ubuntu-latest
     steps:
       - name: Fail if any job failed
