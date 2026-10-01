@@ -1,3 +1,5 @@
+import logging
+
 from django.contrib.auth import authenticate
 from rest_framework import status
 from rest_framework.exceptions import AuthenticationFailed, NotAuthenticated, Throttled
@@ -6,6 +8,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts import sessions, throttling
+from apps.accounts.audit import email_hash, security_event
+from apps.accounts.authentication import SessionReuseDetected
 from apps.accounts.serializers import LoginSerializer, UserSerializer
 
 
@@ -29,6 +33,10 @@ class PublicAuthView(APIView):
 class LoginView(PublicAuthView):
     throttle_classes = [throttling.LoginRateThrottle]
 
+    def throttled(self, request, wait):
+        security_event("auth.throttled", request, level=logging.WARNING, limit="ip")
+        super().throttled(request, wait)
+
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -36,6 +44,9 @@ class LoginView(PublicAuthView):
 
         wait = throttling.lockout_seconds(email)
         if wait is not None:
+            security_event(
+                "auth.throttled", request, level=logging.WARNING, limit="email", email_hash=email_hash(email)
+            )
             raise Throttled(wait=wait)
 
         # Django's backend also hashes for unknown emails, so timing doesn't reveal which accounts exist,
@@ -43,8 +54,10 @@ class LoginView(PublicAuthView):
         user = authenticate(request, email=email, password=password)
         if user is None:
             throttling.record_failure(email)
+            security_event("auth.login_failed", request, level=logging.WARNING, email_hash=email_hash(email))
             raise InvalidCredentials()
         throttling.clear_failures(email)
+        security_event("auth.login_succeeded", request, user_id=str(user.pk))
 
         response = Response({"user": UserSerializer(user).data})
         response.data["access"] = sessions.start_session(user, response)
@@ -59,6 +72,10 @@ class RefreshView(PublicAuthView):
         try:
             access, refresh = sessions.rotate_session(raw_refresh)
         except AuthenticationFailed as exc:
+            if isinstance(exc, SessionReuseDetected):
+                security_event(
+                    "auth.refresh_reuse_detected", request, level=logging.ERROR, user_id=exc.user_id
+                )
             response = self.handle_exception(exc)
             sessions.clear_refresh_cookie(response)
             return response
@@ -71,8 +88,8 @@ class RefreshView(PublicAuthView):
 class LogoutView(PublicAuthView):
     def post(self, request):
         raw_refresh = request.COOKIES.get(sessions.REFRESH_COOKIE)
-        if raw_refresh:
-            sessions.end_session(raw_refresh)
+        if raw_refresh and (user_id := sessions.end_session(raw_refresh)):
+            security_event("auth.logout", request, user_id=user_id)
         response = Response(status=status.HTTP_204_NO_CONTENT)
         sessions.clear_refresh_cookie(response)
         return response
@@ -81,6 +98,7 @@ class LogoutView(PublicAuthView):
 class LogoutAllView(APIView):
     def post(self, request):
         sessions.revoke_all_sessions(request.user)
+        security_event("auth.logout_all", request, user_id=str(request.user.pk))
         response = Response(status=status.HTTP_204_NO_CONTENT)
         sessions.clear_refresh_cookie(response)
         return response

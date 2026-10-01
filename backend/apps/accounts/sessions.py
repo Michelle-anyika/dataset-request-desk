@@ -18,7 +18,12 @@ from rest_framework_simplejwt.state import token_backend
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from apps.accounts.authentication import SESSION_VERSION_CLAIM, InvalidSession, SessionRevoked
+from apps.accounts.authentication import (
+    SESSION_VERSION_CLAIM,
+    InvalidSession,
+    SessionReuseDetected,
+    SessionRevoked,
+)
 
 REFRESH_COOKIE = "refresh_token"
 REFRESH_COOKIE_PATH = "/api/auth/"  # the browser only sends it to the auth endpoints
@@ -80,13 +85,19 @@ def rotate_session(raw_refresh: str) -> tuple[str, str]:
     if revoked.blacklisted_at >= timezone.now() - REUSE_GRACE_PERIOD:
         raise InvalidSession()
     revoke_all_sessions(user)
-    raise SessionRevoked()
+    raise SessionReuseDetected(user.pk)
 
 
-def end_session(raw_refresh: str) -> None:
-    """Blacklist one session's refresh token. An invalid or expired token has nothing left to end."""
+def end_session(raw_refresh: str) -> str | None:
+    """Blacklist one session's refresh token and return its user id.
+
+    An invalid or expired token has nothing left to end, so it returns None.
+    """
     with suppress(TokenError):
-        RefreshToken(raw_refresh).blacklist()
+        token = RefreshToken(raw_refresh)
+        token.blacklist()
+        return str(token[api_settings.USER_ID_CLAIM])
+    return None
 
 
 @transaction.atomic

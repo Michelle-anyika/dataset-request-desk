@@ -9,6 +9,14 @@ class SessionRevoked(AuthenticationFailed):
     default_code = "session_revoked"
 
 
+class SessionReuseDetected(SessionRevoked):
+    """A rotated refresh token was used again: every session of ``user_id`` has been revoked."""
+
+    def __init__(self, user_id):
+        super().__init__()
+        self.user_id = str(user_id)
+
+
 class InvalidSession(AuthenticationFailed):
     default_detail = "Your session is not valid. Please log in again."
     default_code = "invalid_session"
