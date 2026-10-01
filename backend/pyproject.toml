@@ -13,6 +13,7 @@ known-first-party = ["apps", "config"]
 DJANGO_SETTINGS_MODULE = "config.settings"
 testpaths = ["tests"]
 addopts = "-ra --strict-markers"
+markers = ["real_password_hashing: use the production password hasher instead of the fast test one"]
 
 [tool.coverage.run]
 source = ["."]

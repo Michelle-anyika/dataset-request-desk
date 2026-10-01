@@ -19,8 +19,23 @@ Requirements: Docker with Compose v2.
 docker compose up --build
 ```
 
-This starts PostgreSQL, applies database migrations and runs the API on <http://localhost:8000>.
-No `.env` file is needed: every setting has a local default. To override one, copy `.env.example` to `.env`.
+This starts PostgreSQL, applies database migrations, creates the demo accounts and runs the API on
+<http://localhost:8000>. No `.env` file is needed: every setting has a local default. To override one, copy
+`.env.example` to `.env`.
+
+### Demo accounts
+
+Created from [`backend/seed/users.json`](backend/seed/users.json) by `python manage.py seed`, which runs on start
+when `SEED_DEMO_DATA=true` (the local default). Passwords are stored as PBKDF2 hashes, never in plain text.
+
+| Role | Email | Password |
+|---|---|---|
+| Admin | `admin@example.com` | `admin123` |
+| Operator | `ops1@example.com`, `ops2@example.com` | `ops123` |
+| Client | `client-a@example.com` (Acme Robotics), `client-b@example.com` (Beta Labs) | `client123` |
+
+Seeding is safe to repeat: existing accounts are never modified. These passwords are public, so
+`SEED_DEMO_DATA` stays off in production.
 
 ## Run the tests
 

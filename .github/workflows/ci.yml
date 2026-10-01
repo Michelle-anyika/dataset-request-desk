@@ -128,6 +128,12 @@ jobs:
           test "$body" = '{"status": "ok", "db": "ok"}'
       - name: Entrypoint applied all migrations
         run: docker compose exec -T api python manage.py migrate --check
+      - name: Demo data was seeded, and seeding again changes nothing
+        run: |
+          out=$(docker compose exec -T api python manage.py seed)
+          echo "$out"
+          echo "$out" | grep -q "Users: 0 created, 5 already present"
+          echo "$out" | grep -q "Robots: 0 created, 5 already present"
       - name: Show logs
         if: failure()
         run: docker compose logs
