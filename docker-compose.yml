@@ -46,5 +46,21 @@ services:
       retries: 10
       start_period: 10s
 
+  scheduler:
+    build:
+      context: ./backend
+    # Reminders, escalations, deadline warnings and email retries (PLAN.md §7.4). Idempotent, so hourly is safe.
+    command: ["sh", "-c", "while true; do python manage.py send_reminders; sleep 3600; done"]
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-desk}:${POSTGRES_PASSWORD:-desk}@db:5432/${POSTGRES_DB:-desk}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-true}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-local-dev-only-not-a-secret}
+      JWT_SIGNING_KEY: ${JWT_SIGNING_KEY:-local-dev-only-jwt-signing-key-not-a-secret}
+      RUN_MIGRATIONS: "false"
+      SEED_DEMO_DATA: "false"
+    depends_on:
+      api:
+        condition: service_healthy  # the api has applied the migrations
+
 volumes:
   pgdata:
