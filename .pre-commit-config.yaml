@@ -2,8 +2,8 @@
 # Also runs in CI (ci.yml "Pre-commit hooks" job), so skipping it locally doesn't skip the checks.
 default_install_hook_types: [pre-commit, commit-msg]
 default_stages: [pre-commit]
-# The recording-system export is deliberately messy test data; hygiene fixes would change it.
-exclude: ^backend/seed/.*\.csv$
+# backend/seed/ holds files supplied with the brief (the messy export, its generator): kept exactly as given.
+exclude: ^backend/seed/
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks

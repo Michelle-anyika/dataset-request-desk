@@ -335,8 +335,9 @@ All lists are paginated.
 - **Median submitted→delivered:** `percentile_cont(0.5) WITHIN GROUP (ORDER BY delivered_at - submitted_at)`, using
   the *first* delivered event per request (decision: rework doesn't reset the clock).
 - **Top 5 tasks by good episodes:** `WHERE quality='good' GROUP BY task_name ORDER BY count DESC LIMIT 5`.
-- Verified with `EXPLAIN ANALYZE` on 200k+ generated rows; 5M-row discussion in README (range scans on the composite
-  index; next steps are a daily rollup table/materialized view and monthly partitioning on `recorded_at`).
+- Verified on 200k generated rows: 30-day analytics in 0.17 s, a year in 0.71 s; per-day uses an index range
+  scan on `(recorded_at, robot)`. Numbers and the 5M-episode plan (daily rollup table, monthly partitions,
+  keyset pagination, `COPY` imports) are in the README.
 
 ### Logging
 Middleware emits one JSON line per request:
