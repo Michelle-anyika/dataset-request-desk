@@ -47,6 +47,9 @@ MIDDLEWARE = [
     "apps.core.middleware.RequestLoggingMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.middleware.common.CommonMiddleware",
+    # Protects any non-API form view. DRF views are exempt by design; the cookie endpoints have their own
+    # cross-site check (apps.accounts.views.PublicAuthView).
+    "django.middleware.csrf.CsrfViewMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"

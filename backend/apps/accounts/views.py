@@ -3,7 +3,7 @@ import logging
 from django.contrib.auth import authenticate
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
-from rest_framework.exceptions import AuthenticationFailed, NotAuthenticated, Throttled
+from rest_framework.exceptions import AuthenticationFailed, NotAuthenticated, PermissionDenied, Throttled
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -25,11 +25,25 @@ class InvalidCredentials(AuthenticationFailed):
     default_code = "invalid_credentials"
 
 
+class CrossSiteRequest(PermissionDenied):
+    default_detail = "Requests from other sites are not allowed."
+    default_code = "cross_site_request"
+
+
 class PublicAuthView(APIView):
-    """Auth endpoints that work without an access token (they rely on credentials or the refresh cookie)."""
+    """Auth endpoints that work without an access token (they rely on credentials or the refresh cookie).
+
+    Because the refresh cookie is sent automatically, these endpoints are the CSRF surface. Besides the
+    cookie's SameSite=Strict, they refuse any request the browser marks as started by another site.
+    """
 
     authentication_classes = []
     permission_classes = [AllowAny]
+
+    def initial(self, request, *args, **kwargs):
+        if request.headers.get("Sec-Fetch-Site") == "cross-site":
+            raise CrossSiteRequest()
+        super().initial(request, *args, **kwargs)
 
     def get_authenticate_header(self, request):
         # Without an authenticator DRF would turn 401 into 403; credentials errors are 401 with a challenge.
