@@ -26,9 +26,18 @@ INSTALLED_APPS = [
 
 AUTH_USER_MODEL = "accounts.User"
 
+# Argon2id first (OWASP's recommendation). Older PBKDF2 hashes still verify and are re-hashed
+# with Argon2id on the next successful login.
+PASSWORD_HASHERS = [
+    "django.contrib.auth.hashers.Argon2PasswordHasher",
+    "django.contrib.auth.hashers.PBKDF2PasswordHasher",
+]
+
+# Applied to new and changed passwords. The seeded demo accounts are created directly, and never in
+# production.
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
-    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator", "OPTIONS": {"min_length": 12}},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
