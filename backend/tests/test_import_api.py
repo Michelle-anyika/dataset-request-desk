@@ -133,6 +133,18 @@ class TestCommand:
         assert "unknown_robot" in output
         assert Episode.objects.exists()
 
+    def test_once_skips_a_file_that_was_already_imported(self, make_user):
+        make_user(email="ops@example.com", role="operator")
+        call_command(
+            "import_episodes", str(SEED_FILE), "--as", "ops@example.com", "--once", stdout=StringIO()
+        )
+        out = StringIO()
+
+        call_command("import_episodes", str(SEED_FILE), "--as", "ops@example.com", "--once", stdout=out)
+
+        assert "already imported" in out.getvalue()
+        assert ImportBatch.objects.count() == 1
+
     def test_requires_a_staff_account(self, make_user):
         make_user(email="client@example.com", role="client")
 
