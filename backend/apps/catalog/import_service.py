@@ -64,7 +64,14 @@ def import_episodes(lines: Iterable[str], *, file_name: str, uploaded_by) -> Imp
         with transaction.atomic():
             with connection.cursor() as cursor:
                 cursor.execute("SELECT pg_advisory_xact_lock(%s)", [_IMPORT_LOCK])
-            _run(batch, csv.DictReader(hashing(lines)))
+            try:
+                _run(batch, csv.DictReader(hashing(lines)))
+            except UnicodeDecodeError as exc:
+                raise ImportFailed(
+                    "The file is not UTF-8 text. Export it as CSV with UTF-8 encoding."
+                ) from exc
+            except csv.Error as exc:
+                raise ImportFailed(f"The file is not valid CSV: {exc}.") from exc
             batch.file_sha256 = hasher.hexdigest()
             batch.status = ImportStatus.COMPLETED
             batch.finished_at = timezone.now()
