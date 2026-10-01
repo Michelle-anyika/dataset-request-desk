@@ -49,8 +49,9 @@ services:
   scheduler:
     build:
       context: ./backend
-    # Reminders, escalations, deadline warnings and email retries (PLAN.md §7.4). Idempotent, so hourly is safe.
-    command: ["sh", "-c", "while true; do python manage.py send_reminders; sleep 3600; done"]
+    # Reminders, escalations, deadline warnings and the email outbox (PLAN.md §7.4). Idempotent, so every
+    # minute is safe: emails leave within about a minute of the status change.
+    command: ["sh", "-c", "while true; do python manage.py send_reminders; sleep 60; done"]
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-desk}:${POSTGRES_PASSWORD:-desk}@db:5432/${POSTGRES_DB:-desk}
       DJANGO_DEBUG: ${DJANGO_DEBUG:-true}
