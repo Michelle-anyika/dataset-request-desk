@@ -71,6 +71,8 @@ class Episode(models.Model):
             models.Index(fields=["recorded_at", "robot"], name="episodes_recorded_robot_idx"),
             # Analytics top tasks by good episodes, and the operator's task/quality filters.
             models.Index(fields=["quality", "task_name"], name="episodes_quality_task_idx"),
+            # The assignment screen: one task's episodes, newest first, and their count for pagination.
+            models.Index(fields=["task_name", "recorded_at"], name="episodes_task_recorded_idx"),
         ]
 
     def __str__(self):
