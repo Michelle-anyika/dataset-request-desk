@@ -24,14 +24,15 @@ implements it, so this document doubles as a checklist. Architecture context is 
 | Stolen refresh token (XSS) | Refresh token in an `HttpOnly; Secure; SameSite=Strict` cookie, which JavaScript can't read; strict Content Security Policy | #5, #18, #41 |
 | Replayed refresh token | Rotation on every use; the old token is blacklisted; **reuse of a revoked token revokes all of that user's sessions** | #5 |
 | Session survives deactivation, password or role change | A `session_version` on the user is copied into every token; raising it rejects every older token immediately, access tokens included | #5, #16 |
-| Cross-site request forgery | Same-origin API (the frontend proxies `/api`); `SameSite=Strict` cookie scoped to `/api/auth/`; bearer access tokens can't be sent by another site | #5, #18, #25 |
+| Cross-site request forgery | Same-origin API (the frontend proxies `/api`); `SameSite=Strict` cookie scoped to `/api/auth/`; cookie endpoints refuse requests the browser marks `Sec-Fetch-Site: cross-site`; bearer access tokens can't be sent by another site; Django's CSRF middleware for any non-API view | #5, #18, #25 |
 | Eavesdropping, downgrade to HTTP | HTTPS only: redirect, HSTS (1 year), `Secure` cookies | #41 |
 | Clickjacking, MIME sniffing | `X-Frame-Options: DENY`, `frame-ancestors 'none'`, `X-Content-Type-Options: nosniff` | #41 |
 | SQL injection | ORM or parameterised SQL only, including analytics | all |
 | Oversized or malicious uploads | Size limit, allowed extensions, parsed as data with the `csv` module, never executed; row-level validation | #11, #41 |
 | Unbounded queries (denial of service) | Pagination with a maximum page size; API rate limits for authenticated and anonymous users | #41 |
+| Sensitive files in the image | The Dockerfile copies only the app's folders, never the whole build context | done |
 | Secrets leaked in the repository | Environment variables only; `.env` git-ignored; private-key pre-commit hook; GitHub secret scanning with push protection (enabled) | done |
-| Vulnerable dependency | Pinned versions; Dependabot version and **security** updates (enabled); `pip-audit` and `npm audit` in CI | #42 |
+| Vulnerable or tampered dependency | **Hash-locked** Python and Node dependencies (`--require-hashes`, `npm ci`), installed from **wheels only** and with **install scripts disabled**, so no package code runs at install time; Dependabot version and security updates; `pip-audit` and `npm audit` in CI | done, #42 |
 | Insecure code pattern | Ruff security rules (Bandit) and CodeQL in CI | #42 |
 | Sensitive data in logs | No query strings, bodies, tokens or passwords logged; emails in security events are hashed; Sentry without default PII | #3, #5, #32 |
 | Misconfigured production | `DEBUG` off; `manage.py check --deploy` fails CI on any warning; separate JWT signing key | #41 |
