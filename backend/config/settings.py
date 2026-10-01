@@ -136,3 +136,6 @@ SPECTACULAR_SETTINGS = {
     "SERVE_INCLUDE_SCHEMA": False,
     "COMPONENT_SPLIT_REQUEST": True,
 }
+
+# Episode import uploads (docs/security.md section 2): bounded size, CSV only.
+IMPORT_MAX_UPLOAD_BYTES = int(env_str("IMPORT_MAX_UPLOAD_BYTES", default=str(20 * 1024 * 1024)))
