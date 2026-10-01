@@ -2,6 +2,7 @@
 
 from django.db import transaction
 
+from apps.notifications.services import notify_status_change
 from apps.requests_desk.models import DatasetRequest, RequestStatus, RequestStatusEvent
 
 
@@ -14,11 +15,12 @@ def submit_request(client, *, task_name, episodes_requested, deadline, notes="")
         deadline=deadline,
         notes=notes,
     )
-    RequestStatusEvent.objects.create(
+    event = RequestStatusEvent.objects.create(
         request=request,
         from_status=None,
         to_status=RequestStatus.SUBMITTED,
         changed_by=client,
         changed_at=request.status_changed_at,
     )
+    notify_status_change(request, event)
     return request

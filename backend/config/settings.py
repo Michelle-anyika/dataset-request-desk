@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     "apps.catalog",
     "apps.requests_desk",
     "apps.analytics",
+    "apps.notifications",
 ]
 
 AUTH_USER_MODEL = "accounts.User"
@@ -158,3 +159,16 @@ HTTPS_ONLY = env_bool("HTTPS_ONLY", default=not DEBUG)
 globals().update(https_settings(enabled=HTTPS_ONLY))
 SECURE_REDIRECT_EXEMPT = [r"^health$"]  # hosting health checks call it over HTTP inside their network
 X_FRAME_OPTIONS = "DENY"
+
+# Email (notifications). Console locally: emails appear in `docker compose logs`. SMTP when deployed.
+EMAIL_BACKEND = env_str("EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend")
+DEFAULT_FROM_EMAIL = env_str("DEFAULT_FROM_EMAIL", default="Dataset Request Desk <no-reply@localhost>")
+EMAIL_HOST = env_str("EMAIL_HOST", default="localhost")
+EMAIL_PORT = int(env_str("EMAIL_PORT", default="587"))
+EMAIL_HOST_USER = env_str("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = env_str("EMAIL_HOST_PASSWORD", default="")
+EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", default=True)
+EMAIL_TIMEOUT = 10  # seconds: a slow mail server must not hold up a worker
+
+# Links in emails point at the web app.
+FRONTEND_URL = env_str("FRONTEND_URL", default="http://localhost:5173")
