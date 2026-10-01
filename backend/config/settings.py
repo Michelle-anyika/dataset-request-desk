@@ -25,6 +25,7 @@ INSTALLED_APPS = [
     "apps.accounts",
     "apps.catalog",
     "apps.requests_desk",
+    "apps.analytics",
 ]
 
 AUTH_USER_MODEL = "accounts.User"

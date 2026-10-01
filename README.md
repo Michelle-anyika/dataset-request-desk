@@ -94,6 +94,53 @@ Or `POST /api/imports/` with the file (operators and admins), then `GET /api/imp
 `GET /api/imports/{id}/issues/?severity=skipped`. Uploads are limited to `.csv` and `IMPORT_MAX_UPLOAD_BYTES`
 (20 MB by default). On start, the demo export in `backend/seed/episodes.csv` is imported once.
 
+## Analytics
+
+`GET /api/analytics/?from=YYYY-MM-DD&to=YYYY-MM-DD` (operators and admins; inclusive UTC dates, last 30 days by
+default, at most a year) returns:
+
+- `episodes_per_day`: episodes recorded per day per robot;
+- `requests.by_status`: requests submitted in the range, by current status;
+- `requests.median_hours_to_delivery`: median time from submission to **first** delivery (rework doesn't reset
+  the clock), with `delivered_count`, the number of requests it's based on;
+- `top_tasks_by_good_episodes`: the top 5 task names by good episodes.
+
+Every number is aggregated by PostgreSQL in four queries (`apps/analytics/queries.py`): `GROUP BY` for the counts
+and `percentile_cont(0.5)` for the median. No rows are loaded into Python to be counted.
+
+### Measured at 200,000 episodes
+
+Generated with `backend/seed/generate_episodes.py 200000` (one year of data) on a laptop in Docker:
+
+| | Result |
+|---|---|
+| Import (200k rows, all new) | 49 s |
+| Re-import of the same file | 22 s, 0 created, 200,000 unchanged |
+| Analytics, 30-day range (HTTP, all four metrics) | 0.17 s |
+| Analytics, one-year range | 0.71 s |
+| Episodes per day, 30 days | index scan on `(recorded_at, robot)`, 16,537 rows in 33 ms |
+| Top tasks, one year | parallel sequential scan, 48 ms (60% of rows are good, so reading the table beats the index) |
+
+### At 5 million episodes
+
+Expected, not measured: everything above grows with the number of episodes **inside the range**, not with the
+table size.
+
+- **30-day ranges stay fast:** about 400k rows per month at that size, read by an index range scan; expect well
+  under a few seconds.
+- **Year-long ranges break first:** they read most of the table (millions of rows) on every request.
+- **The episode list's `COUNT(*)`** for pagination also becomes slow on unfiltered queries.
+
+What we'd change, in order:
+
+1. **Daily rollup table** `episode_daily_counts(day, robot_id, task_name, quality, count)`, updated by the
+   import (the only writer of episodes). Analytics then reads days × robots × tasks rows, independent of the
+   number of episodes.
+2. **Monthly partitions** of `episodes` on `recorded_at`, so date ranges only touch the months they cover.
+3. **Keyset pagination** for the episode list instead of `COUNT(*)` and `OFFSET`.
+4. **`COPY` into a staging table** plus `INSERT … ON CONFLICT` for imports, typically several times faster than
+   ORM bulk inserts.
+
 ## Operations
 
 **Health check:** `GET /health` (no authentication) returns `200 {"status": "ok", "db": "ok"}`, or
