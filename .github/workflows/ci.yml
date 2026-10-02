@@ -50,6 +50,9 @@ jobs:
           node-version: "22"
       - name: Audit repository tooling (npm)
         run: npm audit --audit-level=high
+      - name: Audit frontend dependencies (npm)
+        if: hashFiles('frontend/package-lock.json') != ''
+        run: npm audit --audit-level=high --prefix frontend
 
   # Backend/frontend jobs only run once their folder exists, so CI is green from the first commit.
   detect:
@@ -137,13 +140,18 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: "22"
+          node-version: "24"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci --ignore-scripts
-      - run: npm run lint --if-present
-      - run: npm test --if-present
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test:coverage
       - run: npm run build
+      - uses: actions/upload-artifact@v7
+        with:
+          name: frontend-coverage
+          path: frontend/coverage/lcov.info
 
   # Proves the one-command startup from a clean checkout.
   compose:
@@ -161,6 +169,11 @@ jobs:
           body=$(curl --fail --silent --show-error http://localhost:8000/health)
           echo "$body"
           test "$body" = '{"status": "ok", "db": "ok"}'
+      - name: The app is served, and proxies the API on the same origin
+        run: |
+          curl --fail --silent --show-error http://localhost:8080/ | grep -q '<div id="root">'
+          curl --fail --silent --show-error http://localhost:8080/requests/any-client-route | grep -q '<div id="root">'
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://localhost:8080/api/auth/me/)" = 401
       - name: Entrypoint applied all migrations
         run: docker compose exec -T api python manage.py migrate --check
       - name: Seeded admin can log in and read their profile
@@ -221,8 +234,8 @@ jobs:
   # Static analysis and coverage of new code; the job fails if the SonarCloud quality gate fails.
   sonarcloud:
     name: SonarCloud
-    needs: [detect, backend]
-    if: needs.detect.outputs.backend == 'true'
+    needs: [detect, backend, frontend]
+    if: needs.detect.outputs.backend == 'true' && !cancelled()
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -232,6 +245,11 @@ jobs:
         with:
           name: backend-coverage
           path: backend
+      - uses: actions/download-artifact@v7
+        if: needs.frontend.result == 'success'
+        with:
+          name: frontend-coverage
+          path: frontend/coverage
       - uses: SonarSource/sonarqube-scan-action@d209202bc7d53ff1cc128f7f907dac145c9d6ae9  # v8.3.0
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
