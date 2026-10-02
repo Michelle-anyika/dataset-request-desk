@@ -112,7 +112,3 @@ class EpisodeFilterSerializer(QueryParamsSerializer):
 
     def validate_task_name(self, value):
         return normalise_task_name(value)
-
-
-class ImportListParamsSerializer(QueryParamsSerializer):
-    """The import list takes no filters, only pagination."""

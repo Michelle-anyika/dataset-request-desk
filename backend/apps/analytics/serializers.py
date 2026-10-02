@@ -12,7 +12,7 @@ DEFAULT_RANGE_DAYS = 30
 class AnalyticsRangeSerializer(QueryParamsSerializer):
     """``from`` and ``to`` are inclusive business dates (Kigali). Defaults: the last 30 days, ending today."""
 
-    allowed_extra = frozenset()  # not paginated
+    pagination = False
 
     def get_fields(self):
         # "from" is a Python keyword, so the fields are declared here rather than as class attributes.

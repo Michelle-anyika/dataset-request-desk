@@ -9,6 +9,7 @@ from apps.accounts.models import Role
 from apps.core.idempotency import idempotent
 from apps.core.openapi import error_response
 from apps.core.permissions import IsClient, IsOperator
+from apps.core.query import QueryParamsSerializer
 from apps.requests_desk import assignments, services, workflow
 from apps.requests_desk.models import Assignment, DatasetRequest
 from apps.requests_desk.serializers import (
@@ -105,6 +106,7 @@ class DatasetRequestViewSet(
     @action(detail=True, methods=["get"], url_path="events")
     def events(self, request, pk=None):
         """Status history, oldest first, paginated (it grows with every rework). Append-only."""
+        QueryParamsSerializer(data=request.query_params).is_valid(raise_exception=True)
         dataset_request = self.get_object()  # scoped: another client's request is 404
         page = self.paginate_queryset(dataset_request.events.select_related("changed_by"))
         return self.get_paginated_response(RequestEventSerializer(page, many=True).data)
