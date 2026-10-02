@@ -16,7 +16,7 @@ function note(id: number, overrides = {}) {
     message: `Your “pick cup” request has been delivered (${id})`,
     request: { id: request.id, task_name: "pick cup", status: "delivered" },
     created_at: new Date(Date.now() - id * 60_000).toISOString(),
-    read_at: null,
+    read_at: null as string | null,
     ...overrides,
   };
 }

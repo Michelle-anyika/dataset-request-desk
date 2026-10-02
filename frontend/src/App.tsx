@@ -7,6 +7,8 @@ import { AssignEpisodesPage } from "./episodes/AssignEpisodesPage";
 import { ImportReportPage } from "./imports/ImportReportPage";
 import { ImportsPage } from "./imports/ImportsPage";
 import { AppLayout } from "./layout/AppLayout";
+import { NotificationBell } from "./notifications/NotificationBell";
+import { NotificationsPage } from "./notifications/NotificationsPage";
 import { LoginPage } from "./pages/LoginPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { RequestsPage } from "./pages/RequestsPage";
@@ -25,7 +27,7 @@ export function App() {
         <Route
           element={
             <RequireAuth>
-              <AppLayout />
+              <AppLayout headerExtras={<NotificationBell />} />
             </RequireAuth>
           }
         >
@@ -82,6 +84,7 @@ export function App() {
               </RequireAuth>
             }
           />
+          <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>
