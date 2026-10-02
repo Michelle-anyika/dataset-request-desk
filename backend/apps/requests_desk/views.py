@@ -97,10 +97,10 @@ class DatasetRequestViewSet(
     @extend_schema(responses={200: RequestEventSerializer(many=True)})
     @action(detail=True, methods=["get"], url_path="events")
     def events(self, request, pk=None):
-        """Status history, oldest first. Append-only: there are no endpoints to change it."""
+        """Status history, oldest first, paginated (it grows with every rework). Append-only."""
         dataset_request = self.get_object()  # scoped: another client's request is 404
-        events = dataset_request.events.select_related("changed_by")
-        return Response(RequestEventSerializer(events, many=True).data)
+        page = self.paginate_queryset(dataset_request.events.select_related("changed_by"))
+        return self.get_paginated_response(RequestEventSerializer(page, many=True).data)
 
     @extend_schema(
         methods=["GET"],
