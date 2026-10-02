@@ -242,6 +242,47 @@ jobs:
         if: always()
         run: docker compose down --volumes
 
+  # Real browser journeys against the whole stack, with an axe accessibility check of every screen they visit
+  # (frontend/e2e). Fails on any broken journey or any serious WCAG 2.1 AA violation.
+  e2e:
+    name: End-to-end (Playwright)
+    needs: detect
+    if: needs.detect.outputs.frontend == 'true' && needs.detect.outputs.compose == 'true'
+    runs-on: ubuntu-latest
+    env:
+      THROTTLE_LOGIN_RATE: 1000/min  # one machine signs in many times a minute; the limit has its own tests
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build and start the stack
+        run: docker compose up --build --detach --wait --wait-timeout 180
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install the test tools
+        working-directory: frontend
+        run: |
+          npm ci --ignore-scripts
+          npx playwright install --with-deps chromium
+      - name: Run the journeys
+        working-directory: frontend
+        run: npm run e2e
+      - name: Upload the report and traces
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: |
+            frontend/playwright-report/
+            frontend/test-results/
+      - name: Show logs
+        if: failure()
+        run: docker compose logs api web
+      - name: Stop the stack
+        if: always()
+        run: docker compose down --volumes
+
   # Static analysis and coverage of new code; the job fails if the SonarCloud quality gate fails.
   sonarcloud:
     name: SonarCloud
@@ -271,7 +312,7 @@ jobs:
   ci-ok:
     name: CI OK
     if: always()
-    needs: [hygiene, dependency-audit, detect, backend, frontend, compose, fuzz, sonarcloud]
+    needs: [hygiene, dependency-audit, detect, backend, frontend, compose, fuzz, e2e, sonarcloud]
     runs-on: ubuntu-latest
     steps:
       - name: Fail if any job failed
