@@ -1,7 +1,8 @@
+import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router";
 
 import { AuthProvider } from "./auth/AuthProvider";
-import { RequireAuth } from "./auth/RequireAuth";
+import { FullPageLoader, RequireAuth } from "./auth/RequireAuth";
 import { AssignEpisodesPage } from "./episodes/AssignEpisodesPage";
 import { ImportReportPage } from "./imports/ImportReportPage";
 import { ImportsPage } from "./imports/ImportsPage";
@@ -12,6 +13,9 @@ import { RequestsPage } from "./pages/RequestsPage";
 import { NewRequestPage } from "./requests/NewRequestPage";
 import { RequestDetailPage } from "./requests/RequestDetailPage";
 import { UsersPage } from "./pages/UsersPage";
+
+// The charts library is large: load it only when someone opens analytics.
+const AnalyticsPage = lazy(() => import("./analytics/AnalyticsPage").then((module) => ({ default: module.AnalyticsPage })));
 
 export function App() {
   return (
@@ -57,6 +61,16 @@ export function App() {
             element={
               <RequireAuth roles={["operator", "admin"]}>
                 <ImportReportPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/analytics"
+            element={
+              <RequireAuth roles={["operator", "admin"]}>
+                <Suspense fallback={<FullPageLoader />}>
+                  <AnalyticsPage />
+                </Suspense>
               </RequireAuth>
             }
           />

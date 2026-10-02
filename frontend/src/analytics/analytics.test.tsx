@@ -3,10 +3,16 @@ import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 
 import { App } from "../App";
+import { formatHours } from "./AnalyticsPage";
 import { todayIso } from "../format";
 import { apiError, client, operator, sessionFor } from "../test/fixtures";
 import { renderAt } from "../test/render";
 import { server } from "../test/server";
+
+// The page is lazy-loaded; load its (large) chart module once up front, not inside the first test's time.
+beforeAll(async () => {
+  await import("./AnalyticsPage");
+});
 
 const report = {
   range: { from: "2026-09-03", to: "2026-10-02" },
@@ -49,7 +55,8 @@ test("shows the last 30 days by default, with the headline numbers", async () =>
 
   renderAt(<App />, "/analytics");
 
-  expect(await screen.findByText("9")).toBeInTheDocument(); // episodes recorded
+  // The first render waits for the lazy page and the data; allow for a busy CI runner.
+  expect(await screen.findByText("9", {}, { timeout: 10_000 })).toBeInTheDocument(); // episodes recorded
   expect(screen.getByText("1.5 days")).toBeInTheDocument(); // median time to delivery
   expect(screen.getByText(/based on 3 deliveries/i)).toBeInTheDocument();
   expect(queries[0]?.get("from")).toBe(daysBefore(29));
@@ -117,4 +124,13 @@ test("clients can't open analytics", async () => {
   renderAt(<App />, "/analytics");
 
   expect(await screen.findByRole("heading", { name: "Page not found" })).toBeInTheDocument();
+});
+
+test.each([
+  [null, "—"],
+  [0.2, "under 1 h"],
+  [5, "5 h"],
+  [36, "1.5 days"],
+])("a median of %s hours reads %s", (hours, text) => {
+  expect(formatHours(hours)).toBe(text);
 });
