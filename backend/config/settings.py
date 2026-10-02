@@ -111,7 +111,11 @@ REST_FRAMEWORK = {
         "apps.core.throttling.AnonBurstThrottle",
         "apps.core.throttling.UserSustainedThrottle",
     ],
-    "DEFAULT_THROTTLE_RATES": {"anon": "60/min", "user": "3000/hour"},
+    # Per worker (in-memory counters). Raise only for load testing, never to "fix" a client.
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": env_str("THROTTLE_ANON_RATE", default="60/min"),
+        "user": env_str("THROTTLE_USER_RATE", default="3000/hour"),
+    },
     # Proxies in front of the API (e.g. the hosting load balancer): needed to find the real client IP for
     # throttling. 0 locally, where clients connect directly.
     "NUM_PROXIES": int(env_str("TRUSTED_PROXY_COUNT", default="0")),
