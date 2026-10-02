@@ -4,6 +4,7 @@ import pytest
 from django.db import IntegrityError
 from django.utils import timezone
 
+from apps.core.dates import business_today
 from apps.requests_desk.models import DatasetRequest, RequestStatus
 
 REQUESTS = "/api/requests/"
@@ -75,7 +76,7 @@ def test_status_and_owner_cannot_be_chosen_by_the_client(api_as, make_user):
         ("episodes_requested", 1_000_001),
         ("task_name", "   "),
         ("task_name", "x" * 121),
-        ("deadline", (timezone.localdate() - timedelta(days=1)).isoformat()),
+        ("deadline", (business_today() - timedelta(days=1)).isoformat()),
         ("notes", "x" * 2001),
     ],
 )
@@ -87,9 +88,7 @@ def test_invalid_values_are_rejected_per_field(api_as, field, value):
 
 
 def test_a_deadline_of_today_is_allowed(api_as):
-    response = api_as("client").post(
-        REQUESTS, payload(deadline=timezone.localdate().isoformat()), format="json"
-    )
+    response = api_as("client").post(REQUESTS, payload(deadline=business_today().isoformat()), format="json")
 
     assert response.status_code == 201
 

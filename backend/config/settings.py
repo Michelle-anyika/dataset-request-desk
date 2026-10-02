@@ -76,7 +76,9 @@ DATABASES = {
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 LANGUAGE_CODE = "en-us"
-TIME_ZONE = "UTC"
+TIME_ZONE = "UTC"  # timestamps are stored and compared in UTC
+# Rules about today's date (deadlines, deadline warnings, default analytics range): apps.core.dates.
+BUSINESS_TIME_ZONE = env_str("BUSINESS_TIME_ZONE", default="Africa/Kigali")
 USE_I18N = False
 USE_TZ = True
 
