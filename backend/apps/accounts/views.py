@@ -22,6 +22,7 @@ from apps.accounts.serializers import (
     UserSerializer,
     UserUpdateSerializer,
 )
+from apps.core.openapi import error_response
 from apps.core.permissions import IsAdmin
 
 
@@ -34,6 +35,9 @@ class InvalidCredentials(AuthenticationFailed):
 class CrossSiteRequest(PermissionDenied):
     default_detail = "Requests from other sites are not allowed."
     default_code = "cross_site_request"
+
+
+CROSS_SITE = error_response("The browser marked the request as coming from another site.")
 
 
 class PublicAuthView(APIView):
@@ -65,7 +69,11 @@ class LoginView(PublicAuthView):
 
     @extend_schema(
         request=LoginSerializer,
-        responses={200: LoginResponseSerializer},
+        responses={
+            200: LoginResponseSerializer,
+            401: error_response("Email or password is incorrect."),
+            403: CROSS_SITE,
+        },
         description="Sets the refresh token as an HttpOnly cookie. Throttled per IP and per email.",
     )
     def post(self, request):
@@ -98,7 +106,11 @@ class LoginView(PublicAuthView):
 class RefreshView(PublicAuthView):
     @extend_schema(
         request=None,
-        responses={200: AccessTokenSerializer},
+        responses={
+            200: AccessTokenSerializer,
+            401: error_response("No session, or it has expired or been revoked."),
+            403: CROSS_SITE,
+        },
         description="Uses and rotates the refresh cookie. Reusing an old refresh token ends every session.",
     )
     def post(self, request):
@@ -123,7 +135,9 @@ class RefreshView(PublicAuthView):
 
 class LogoutView(PublicAuthView):
     @extend_schema(
-        request=None, responses={204: None}, description="Ends this session and clears the cookie."
+        request=None,
+        responses={204: None, 403: CROSS_SITE},
+        description="Ends this session and clears the cookie.",
     )
     def post(self, request):
         raw_refresh = request.COOKIES.get(sessions.REFRESH_COOKIE)
@@ -189,7 +203,13 @@ class UserViewSet(
         )
         return Response(ManagedUserSerializer(user).data, status=status.HTTP_201_CREATED)
 
-    @extend_schema(request=UserUpdateSerializer, responses={200: ManagedUserSerializer})
+    @extend_schema(
+        request=UserUpdateSerializer,
+        responses={
+            200: ManagedUserSerializer,
+            409: error_response("You can't demote or deactivate yourself, or the last active admin."),
+        },
+    )
     def partial_update(self, request, pk=None):
         user = self.get_object()
         payload = UserUpdateSerializer(data=request.data, context={"user": user})
