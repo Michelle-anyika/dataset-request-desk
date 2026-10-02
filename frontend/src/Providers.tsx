@@ -2,7 +2,6 @@ import { MantineProvider } from "@mantine/core";
 import { Notifications } from "@mantine/notifications";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
-import { BrowserRouter } from "react-router";
 
 import { theme } from "./theme";
 
@@ -16,15 +15,14 @@ export function createQueryClient() {
   });
 }
 
-/** Everything the app needs around it: theme, notifications, server-state cache and routing. */
+/** Everything the app needs around it: theme, notifications and the server-state cache. The router is
+ * added by the caller: the browser's history in the app, an in-memory one in tests. */
 export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(createQueryClient);
   return (
     <MantineProvider theme={theme} defaultColorScheme="auto">
       <Notifications position="top-right" />
-      <QueryClientProvider client={queryClient}>
-        <BrowserRouter>{children}</BrowserRouter>
-      </QueryClientProvider>
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     </MantineProvider>
   );
 }
