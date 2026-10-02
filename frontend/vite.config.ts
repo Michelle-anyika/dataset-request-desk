@@ -19,6 +19,7 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
     css: false,
+    testTimeout: 15_000, // coverage instrumentation on a shared CI runner is several times slower
     coverage: {
       provider: "v8",
       include: ["src/**/*.{ts,tsx}"],
