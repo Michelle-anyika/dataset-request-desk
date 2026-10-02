@@ -13,12 +13,18 @@ import { usePageTitle } from "../usePageTitle";
 /** The API says "Expected available in 540 seconds"; people read minutes. */
 export function signInError(error: unknown): string {
   if (error instanceof ApiError && error.status === 429) {
-    const seconds = Number(/(\d+) seconds/.exec(error.message)?.[1] ?? 60);
+    const seconds = Number(/(\d{1,6}) seconds/.exec(error.message)?.[1] ?? 60);
     const minutes = Math.max(1, Math.ceil(seconds / 60));
     return `Too many attempts. Try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`;
   }
   if (error instanceof ApiError && error.status < 500) return error.message;
   return "We couldn't reach the server. Check your connection and try again.";
+}
+
+/** A quick shape check before calling the API, which validates properly. No regex: nothing to backtrack. */
+export function looksLikeEmail(value: string) {
+  const at = value.indexOf("@");
+  return at > 0 && value.indexOf(".", at + 2) > at + 1 && !value.endsWith(".") && !/\s/.test(value);
 }
 
 export function LoginPage() {
@@ -33,7 +39,7 @@ export function LoginPage() {
     initialValues: { email: "", password: "" },
     validate: {
       email: (value) =>
-        !value.trim() ? "Enter your email address." : /^\S+@\S+\.\S+$/.test(value.trim()) ? null : "Enter a valid email address.",
+        !value.trim() ? "Enter your email address." : looksLikeEmail(value.trim()) ? null : "Enter a valid email address.",
       password: (value) => (value ? null : "Enter your password."),
     },
   });
@@ -47,7 +53,7 @@ export function LoginPage() {
     setSubmitting(true);
     try {
       await signIn(email.trim(), password);
-      navigate(destination, { replace: true });
+      void navigate(destination, { replace: true });
     } catch (failure) {
       setError(signInError(failure));
       setSubmitting(false);
