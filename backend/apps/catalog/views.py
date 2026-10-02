@@ -13,6 +13,7 @@ from apps.catalog.serializers import (
     EpisodeFilterSerializer,
     EpisodeSerializer,
     ImportBatchSerializer,
+    ImportListParamsSerializer,
     ImportRowIssueSerializer,
     ImportUploadSerializer,
     IssueFilterSerializer,
@@ -42,6 +43,8 @@ class ImportBatchViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, views
             status=ImportStatus.COMPLETED,
             started_at__lt=OuterRef("started_at"),
         )
+        if self.action == "list":
+            ImportListParamsSerializer(data=self.request.query_params).is_valid(raise_exception=True)
         return ImportBatch.objects.select_related("uploaded_by").annotate(
             previously_imported=Exists(earlier_success)
         )

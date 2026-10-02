@@ -5,6 +5,7 @@ from rest_framework import serializers
 
 from apps.catalog.models import Episode, ImportBatch, ImportRowIssue, IssueSeverity, Quality
 from apps.catalog.normalise import normalise_task_name
+from apps.core.query import QueryParamsSerializer
 
 ALLOWED_EXTENSIONS = {".csv"}
 
@@ -59,7 +60,7 @@ class ImportRowIssueSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
-class IssueFilterSerializer(serializers.Serializer):
+class IssueFilterSerializer(QueryParamsSerializer):
     severity = serializers.ChoiceField(choices=IssueSeverity.choices, required=False)
     reason_code = serializers.CharField(max_length=50, required=False)
 
@@ -85,7 +86,7 @@ class EpisodeSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
-class EpisodeFilterSerializer(serializers.Serializer):
+class EpisodeFilterSerializer(QueryParamsSerializer):
     ORDERINGS = [
         "-recorded_at",
         "recorded_at",
@@ -111,3 +112,7 @@ class EpisodeFilterSerializer(serializers.Serializer):
 
     def validate_task_name(self, value):
         return normalise_task_name(value)
+
+
+class ImportListParamsSerializer(QueryParamsSerializer):
+    """The import list takes no filters, only pagination."""
