@@ -1,5 +1,5 @@
 # Build the static app with Node, then serve it with nginx: nothing of Node ships in the final image.
-FROM node:24-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --ignore-scripts --no-audit --no-fund
