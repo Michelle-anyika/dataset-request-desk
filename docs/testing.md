@@ -10,17 +10,17 @@ defect, vulnerability or performance regression is found on a pull request or on
 | Unit | Logic errors in small, pure pieces: parsing, normalisation, transition rules, formatting | pytest | every PR | ✅ |
 | Integration | Endpoints, permissions, transactions and database constraints working together, on real PostgreSQL | pytest-django, DRF API client | every PR | ✅ |
 | Contract | The API drifting from its OpenAPI description | `spectacular --validate --fail-on-warn` | every PR | ✅ |
-| API fuzzing | Crashes and schema violations from thousands of generated inputs, as every role | Schemathesis | every PR | #45 |
-| Coverage gate | Untested code being merged | pytest-cov, fail under 90% | every PR | #45 |
-| Query budgets | N+1 queries and other database performance bugs | `django_assert_max_num_queries` | every PR | #45 |
+| API fuzzing | Crashes, undocumented responses and accepted invalid input, from thousands of generated requests | Schemathesis, against the production-mode stack | every PR | ✅ |
+| Coverage gate | Untested code being merged | pytest-cov, branch coverage, fail under 95% | every PR | ✅ |
+| Query budgets | N+1 queries and other database performance bugs | `django_assert_max_num_queries` | every PR | ✅ |
 | Smoke | The system not starting, migrating, seeding or logging in from a clean checkout | `docker compose up --wait` + curl | every PR | ✅ |
 | Static security | Insecure code patterns | Ruff Bandit rules (`S`), CodeQL (`security-extended`, Python and workflows) | every PR, weekly | ✅ |
 | Dependencies | Known-vulnerable packages | Dependabot, `pip-audit` on every lock file, `npm audit` | every PR, daily | ✅ |
-| Code quality | Duplication, complexity, code smells, coverage on new code | SonarCloud | every PR | #17 |
+| Code quality | Duplication, complexity, code smells, coverage on new code | SonarCloud quality gate | every PR | ✅ |
 | End-to-end | Broken user journeys in a real browser | Playwright against the compose stack | merge to `develop`, nightly | #46 |
 | Accessibility | Screens that can't be used with assistive technology | axe (in Playwright) | merge to `develop`, nightly | #46 |
 | Dynamic security | Missing headers, insecure cookies, common web vulnerabilities in the running app | OWASP ZAP baseline | merge to `develop`, nightly | #47 |
-| Load | Slow endpoints or errors under concurrent use | k6 (p95 < 300 ms, errors < 1%) | merge to `develop`, nightly | #47 |
+| Load | Slow endpoints or errors under concurrent use | k6: 10,000 requests from 200 users ([results](performance.md)) | on demand; nightly: #47 | ✅ |
 
 ## Gates
 
@@ -58,11 +58,51 @@ The brief names four areas, and they get the deepest tests:
   them. For example, the switch from a revocation timestamp to a session version kept every session test unchanged.
 - **One reason to fail per test**, named after the rule it protects.
 
+## Coverage
+
+**99.7 % of lines and branches** (476 tests). CI fails below **95 %**. That is not 100 %, on purpose:
+
+- **Tested on purpose:** the paths that only run on a bad day. For example: a cache computation whose worker
+  died, a Django 404/403 raised outside DRF, an unexpected crash (which must reveal nothing), an import the
+  `csv` module cannot read, a refresh token whose server record is gone. They are collected in
+  `tests/test_failure_paths.py`.
+- **Excluded on purpose:** `__str__` methods (display only, in the admin and shell) and `TYPE_CHECKING`
+  imports. The list is in `pyproject.toml` for anyone to check.
+- **Why not 100 %:** at 100 %, the last few percent are usually tests written to touch a line, or
+  `# pragma: no cover` comments. Coverage shows that code ran, not that it was checked; the fuzzer and the
+  assertions do the checking. The 95 % gate catches a PR that adds untested code.
+
+## Fuzzing
+
+[Schemathesis](https://schemathesis.readthedocs.io/) reads the OpenAPI schema and sends about **2,600 generated
+requests**: valid ones, invalid ones, boundary values, odd encodings and multi-step sequences. It runs against
+the stack in production mode (`DJANGO_DEBUG=false`) as the seeded admin. It fails on any 500, any status, header
+or body the schema doesn't describe, and any invalid input the API accepts. Configuration and the reasons for
+each exception: [`fuzz/schemathesis.toml`](../fuzz/schemathesis.toml).
+
+The first run found **23 problems**, all fixed and covered by tests:
+
+| Found | Fix |
+|---|---|
+| A URL matching no route (e.g. `/api/requests/0.5/`) answered with Django's HTML page | JSON 400/403/404/500 handlers (`tests/test_error_pages.py`) |
+| `?stauts=delivered` (a typo), `?status=` or a repeated filter were silently ignored: 200, unfiltered | Strict query parameters: unknown, blank or repeated is a 400 (`tests/test_query_params.py`) |
+| `?unread=null` was read as "all"; `page_size=0` or `500` silently became 25 or 100 | `true`/`false` only; `page_size` must be 1-100 |
+| The schema didn't state the `Idempotency-Key` format or the pagination bounds | Documented, so clients and the fuzzer know them |
+| The analytics dates were documented as UTC (they are Kigali business dates since #66) | Corrected |
+
+Now: **2,575 generated requests, 0 failures.** In 1,749 malformed requests on the first run, there was not one 500.
+
 ## Running them
 
 ```bash
 docker compose run --rm api pytest          # unit + integration
-docker compose run --rm api pytest --cov    # with coverage
+docker compose run --rm api pytest --cov    # with coverage (fails under 95 %)
+
+# Fuzzing, against the stack in production mode:
+DJANGO_DEBUG=false THROTTLE_ANON_RATE=1000000/min THROTTLE_USER_RATE=1000000/hour docker compose up -d --wait
+sh fuzz/run.sh                              # report in fuzz/report/
+
+# Load test: see docs/performance.md
 ```
 
-The end-to-end, security and load suites are added by #46 and #47, with their commands here.
+The end-to-end and dynamic security suites are added by #46 and #47, with their commands here.
