@@ -115,6 +115,8 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "anon": env_str("THROTTLE_ANON_RATE", default="60/min"),
         "user": env_str("THROTTLE_USER_RATE", default="3000/hour"),
+        # Login attempts per IP (shared cache). Raise only for automated browser tests from one machine.
+        "login": env_str("THROTTLE_LOGIN_RATE", default="10/min"),
     },
     # Proxies in front of the API (e.g. the hosting load balancer): needed to find the real client IP for
     # throttling. 0 locally, where clients connect directly.
