@@ -1,7 +1,8 @@
 from datetime import timedelta
 
-from django.utils import timezone
 from rest_framework import serializers
+
+from apps.core.dates import business_today
 
 MAX_RANGE_DAYS = 366  # bounded cost: at most a year per query
 DEFAULT_RANGE_DAYS = 30
@@ -18,7 +19,7 @@ class AnalyticsRangeSerializer(serializers.Serializer):
         }
 
     def validate(self, attrs):
-        end = attrs.get("to") or timezone.localdate()
+        end = attrs.get("to") or business_today()
         start = attrs.get("from") or end - timedelta(days=DEFAULT_RANGE_DAYS - 1)
         if start > end:
             raise serializers.ValidationError({"from": ["The start date is after the end date."]})

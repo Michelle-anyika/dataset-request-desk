@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from django.db import connection, transaction
 from django.utils import timezone
 
+from apps.analytics.cache import bump_data_version
 from apps.catalog.importing import COLUMNS, ParsedRow, RowRejected, parse_row
 from apps.catalog.models import (
     Episode,
@@ -84,6 +85,7 @@ def import_episodes(lines: Iterable[str], *, file_name: str, uploaded_by) -> Imp
         batch.finished_at = timezone.now()
         batch.save()
         raise
+    bump_data_version()  # after the import's transaction: episode analytics have changed
     return batch
 
 

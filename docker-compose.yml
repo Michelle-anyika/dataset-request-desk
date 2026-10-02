@@ -31,6 +31,7 @@ services:
       JWT_SIGNING_KEY: ${JWT_SIGNING_KEY:-local-dev-only-jwt-signing-key-not-a-secret}
       DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,api}
       SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
+      THROTTLE_USER_RATE: ${THROTTLE_USER_RATE:-3000/hour}  # raise only for load testing
       # The app runs as a non-root user that cannot write to /app (intended), so pytest's cache is off here.
       PYTEST_ADDOPTS: -p no:cacheprovider
     depends_on:
