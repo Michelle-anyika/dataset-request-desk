@@ -12,7 +12,7 @@ import { NotFoundPage } from "./pages/NotFoundPage";
 import { RequestsPage } from "./pages/RequestsPage";
 import { NewRequestPage } from "./requests/NewRequestPage";
 import { RequestDetailPage } from "./requests/RequestDetailPage";
-import { UsersPage } from "./pages/UsersPage";
+import { UsersPage } from "./users/UsersPage";
 
 // The charts library is large: load it only when someone opens analytics.
 const AnalyticsPage = lazy(() => import("./analytics/AnalyticsPage").then((module) => ({ default: module.AnalyticsPage })));
