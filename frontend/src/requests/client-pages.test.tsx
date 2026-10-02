@@ -274,3 +274,39 @@ describe("request detail", () => {
     expect(await screen.findByRole("heading", { name: "Request not found" })).toBeInTheDocument();
   });
 });
+
+test("a large delivery can be reviewed in full, page by page", async () => {
+  const large = makeRequest({ id: "aaaaaaaa-0000-4000-8000-000000000130", status: "delivered", episodes_requested: 130, assigned_count: 130 });
+  const all = Array.from({ length: 130 }, (_, index) => ({
+    episode: {
+      episode_id: `EP-${String(index + 1).padStart(5, "0")}`,
+      robot_id: "arm-01",
+      task_name: "pick cup",
+      recorded_at: "2026-08-01T10:00:00Z",
+      duration_seconds: 30,
+      quality: "good" as const,
+    },
+    assigned_at: "2026-09-27T09:00:00Z",
+  }));
+  server.use(
+    ...sessionFor(client),
+    http.get(`/api/requests/${large.id}/`, () => HttpResponse.json(large)),
+    http.get(`/api/requests/${large.id}/events/`, () => HttpResponse.json(page([]))),
+    // As the API: pages of at most 100.
+    http.get(`/api/requests/${large.id}/assignments/`, ({ request }) => {
+      const params = new URL(request.url).searchParams;
+      const size = Number(params.get("page_size") ?? 25);
+      const number = Number(params.get("page") ?? 1);
+      if (size > 100) return apiError(400, "invalid", "page_size: A whole number from 1 to 100.");
+      return HttpResponse.json(page(all.slice((number - 1) * size, number * size), all.length));
+    }),
+  );
+
+  renderAt(<App />, `/requests/${large.id}`);
+
+  expect(await screen.findByText("EP-00001")).toBeInTheDocument();
+  expect(screen.queryByText("EP-00130")).not.toBeInTheDocument();
+  const pages = screen.getByRole("navigation", { name: "Episode pages" });
+  await userEvent.click(within(pages).getByRole("button", { name: "3" })); // 130 episodes, 50 a page
+  expect(await screen.findByText("EP-00130")).toBeInTheDocument();
+});

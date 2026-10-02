@@ -27,8 +27,9 @@ import { Link, useParams } from "react-router";
 import { ApiError } from "../api/client";
 import { useAssignEpisodes, useEpisodes, useUnassignEpisode } from "../api/episodes";
 import { newIdempotencyKey } from "../api/idempotency";
-import { useAssignments, useRequest } from "../api/requests";
+import { ASSIGNMENTS_PAGE_SIZE, useAssignments, useRequest } from "../api/requests";
 import type { DatasetRequest, Episode, Quality } from "../api/types";
+import { Pager } from "../components/Pager";
 import { EmptyState, LoadError, TableSkeleton } from "../components/states";
 import { formatDate, formatDuration, plural, progressColor } from "../format";
 import { EpisodeTable } from "../requests/RequestDetailPage";
@@ -280,7 +281,8 @@ function EpisodeRow({ episode, selected, onToggle }: { episode: Episode; selecte
 }
 
 function CurrentAssignments({ requestId }: { requestId: string }) {
-  const assignments = useAssignments(requestId);
+  const [page, setPage] = useState(1);
+  const assignments = useAssignments(requestId, { page });
   const unassign = useUnassignEpisode(requestId);
   const [error, setError] = useState<string | null>(null);
 
@@ -288,6 +290,8 @@ function CurrentAssignments({ requestId }: { requestId: string }) {
     setError(null);
     try {
       await unassign.mutateAsync(episodeId);
+      // The last episode on a later page: that page no longer exists, so show the one before it.
+      if (page > 1 && assignments.data?.results.length === 1) setPage(page - 1);
       notifications.show({ color: "gray", title: "Episode removed", message: `${episodeId} is free for other requests.` });
     } catch (failure) {
       setError(failure instanceof ApiError ? failure.message : "We couldn't reach the server. Try again.");
@@ -336,6 +340,14 @@ function CurrentAssignments({ requestId }: { requestId: string }) {
                 </ActionIcon>
               </Tooltip>
             )}
+          />
+        )}
+        {assignments.data && (
+          <Pager
+            label="Assigned episode pages"
+            page={page}
+            pages={Math.ceil(assignments.data.count / ASSIGNMENTS_PAGE_SIZE)}
+            onChange={setPage}
           />
         )}
       </Stack>

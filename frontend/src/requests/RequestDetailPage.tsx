@@ -14,13 +14,14 @@ import {
   Title,
 } from "@mantine/core";
 import { IconArrowLeft, IconCircleCheck, IconCircleDot } from "@tabler/icons-react";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router";
 
 import { ApiError } from "../api/client";
-import { useAssignments, useRequest, useRequestEvents } from "../api/requests";
+import { ASSIGNMENTS_PAGE_SIZE, useAssignments, useRequest, useRequestEvents } from "../api/requests";
 import type { Assignment, DatasetRequest, RequestEvent } from "../api/types";
 import { useUser } from "../auth/AuthProvider";
+import { Pager } from "../components/Pager";
 import { EmptyState, LoadError, TableSkeleton } from "../components/states";
 import { clientLabel, daysSince, deadlineHint, formatDate, formatDateTime, formatDuration, plural, progressColor } from "../format";
 import { usePageTitle } from "../usePageTitle";
@@ -195,7 +196,8 @@ function HistoryItem({ event, last }: { event: RequestEvent; last: boolean }) {
 const QUALITY_COLORS = { good: "teal", usable: "yellow", bad: "gray" } as const;
 
 function Episodes({ requestId, title }: { requestId: string; title: string }) {
-  const assignments = useAssignments(requestId);
+  const [page, setPage] = useState(1);
+  const assignments = useAssignments(requestId, { page });
   return (
     <Paper withBorder radius="md" p="md">
       <Group justify="space-between" mb="md">
@@ -213,7 +215,10 @@ function Episodes({ requestId, title }: { requestId: string; title: string }) {
           No episodes assigned yet.
         </Text>
       ) : (
-        <EpisodeTable rows={assignments.data.results} />
+        <Stack gap="sm">
+          <EpisodeTable rows={assignments.data.results} />
+          <Pager label="Episode pages" page={page} pages={Math.ceil(assignments.data.count / ASSIGNMENTS_PAGE_SIZE)} onChange={setPage} />
+        </Stack>
       )}
     </Paper>
   );

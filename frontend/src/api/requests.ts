@@ -39,13 +39,17 @@ export function useRequestEvents(id: string) {
   });
 }
 
-export function useAssignments(id: string, { history = false } = {}) {
+/** Assigned episodes, a page at a time: a request can hold far more than the API returns at once (100). */
+export const ASSIGNMENTS_PAGE_SIZE = 50;
+
+export function useAssignments(id: string, { history = false, page = 1 } = {}) {
   return useQuery({
-    queryKey: [...requestKeys.assignments(id), { history }],
+    queryKey: [...requestKeys.assignments(id), { history, page }],
     queryFn: () =>
       api<Page<Assignment>>(`/api/requests/${id}/assignments/`, {
-        query: { page_size: 100, history: history ? "true" : undefined },
+        query: { page_size: ASSIGNMENTS_PAGE_SIZE, page, history: history ? "true" : undefined },
       }),
+    placeholderData: keepPreviousData, // keep the table on screen while the next page loads
   });
 }
 
