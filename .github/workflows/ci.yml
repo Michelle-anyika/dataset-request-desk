@@ -121,6 +121,13 @@ jobs:
           python manage.py check --deploy --fail-level WARNING
       - name: Validate the OpenAPI schema (no warnings allowed)
         run: python manage.py spectacular --validate --fail-on-warn --file /tmp/schema.yml
+      # The frontend's types are generated from a committed copy of the schema: an API change must update it
+      # (docker compose exec -T api python manage.py spectacular --format openapi-json > frontend/src/api/openapi.json)
+      - name: The frontend's copy of the API schema is current
+        if: hashFiles('frontend/src/api/openapi.json') != ''
+        run: |
+          python manage.py spectacular --format openapi-json > /tmp/openapi.json
+          diff -u ../frontend/src/api/openapi.json /tmp/openapi.json
       - name: Tests
         run: pytest --cov --cov-report=xml --cov-report=term
       - uses: actions/upload-artifact@v7
@@ -144,6 +151,10 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci --ignore-scripts
+      - name: The API types match the committed schema
+        run: |
+          npm run api:types
+          git diff --exit-code -- src/api/schema.d.ts
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run test:coverage
