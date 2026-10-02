@@ -88,7 +88,7 @@ export function AnalyticsPage() {
               {Object.values(analytics.error.fieldErrors()).join(" ") || analytics.error.message}
             </Alert>
           ) : (
-            <LoadError what="the analytics" onRetry={() => void analytics.refetch()} />
+            <LoadError what="the analytics" error={analytics.error} onRetry={() => void analytics.refetch()} />
           )
         ) : (
           <Dashboard data={analytics.data} />

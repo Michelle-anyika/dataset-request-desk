@@ -3,7 +3,7 @@ import { IconAlertCircle, IconFileTypeCsv, IconUpload } from "@tabler/icons-reac
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 
-import { ApiError } from "../api/client";
+import { describeError } from "../api/errors";
 import { newIdempotencyKey } from "../api/idempotency";
 import { useImports, useUploadImport, type ImportBatch } from "../api/imports";
 import { EmptyState, LoadError, PageHeader, TableSkeleton } from "../components/states";
@@ -42,7 +42,7 @@ export function ImportsPage() {
           {imports.isPending ? (
             <TableSkeleton />
           ) : imports.isError ? (
-            <LoadError what="the imports" onRetry={() => void imports.refetch()} />
+            <LoadError what="the imports" error={imports.error} onRetry={() => void imports.refetch()} />
           ) : imports.data.results.length === 0 ? (
             <EmptyState title="No imports yet">The first export you upload appears here with its report.</EmptyState>
           ) : (
@@ -92,7 +92,7 @@ function UploadCard() {
       const batch = await upload.mutateAsync({ file, key });
       void navigate(`/imports/${batch.id}`);
     } catch (failure) {
-      setError(failure instanceof ApiError ? failure.message : "We couldn't reach the server. Try again.");
+      setError(describeError(failure));
     }
   };
 

@@ -6,9 +6,10 @@ import { useState, type ReactNode } from "react";
 import { ApiError } from "./api/client";
 import { cssVariablesResolver, theme } from "./theme";
 
-/** A 4xx won't succeed on a retry; only network blips and 5xx are worth one more try. */
+/** A 4xx won't succeed on a retry, and a timeout already waited long enough; only network blips and 5xx are
+ * worth one more try. */
 export function shouldRetry(failureCount: number, error: unknown) {
-  if (error instanceof ApiError && error.status < 500) return false;
+  if (error instanceof ApiError && (error.code === "timeout" || (error.status > 0 && error.status < 500))) return false;
   return failureCount < 1;
 }
 

@@ -3,7 +3,7 @@ import { notifications } from "@mantine/notifications";
 import { IconAlertCircle, IconCheck, IconX } from "@tabler/icons-react";
 import { useState } from "react";
 
-import { ApiError } from "../api/client";
+import { describeError } from "../api/errors";
 import { newIdempotencyKey } from "../api/idempotency";
 import { useTransition } from "../api/requests";
 import type { DatasetRequest } from "../api/types";
@@ -62,7 +62,7 @@ function DecisionModal({ request, decision, onClose }: { request: DatasetRequest
       });
       onClose();
     } catch (failure) {
-      setError(failure instanceof ApiError ? failure.message : "We couldn't reach the server. Try again.");
+      setError(describeError(failure));
     }
   };
 

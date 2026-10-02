@@ -4,7 +4,7 @@ import { IconAlertCircle, IconListCheck, IconPlayerPlay, IconRefresh, IconTruckD
 import { useState, type ReactNode } from "react";
 import { Link } from "react-router";
 
-import { ApiError } from "../api/client";
+import { describeError } from "../api/errors";
 import { newIdempotencyKey } from "../api/idempotency";
 import { useRequestEvents, useTransition } from "../api/requests";
 import type { DatasetRequest, RequestStatus } from "../api/types";
@@ -24,7 +24,7 @@ export function StaffActions({ request }: { request: DatasetRequest }) {
       notifications.show({ color: "teal", title: done, message: `${request.client.full_name} has been notified.` });
       setConfirmDelivery(false);
     } catch (failure) {
-      setError(failure instanceof ApiError ? failure.message : "We couldn't reach the server. Try again.");
+      setError(describeError(failure));
     }
   };
 

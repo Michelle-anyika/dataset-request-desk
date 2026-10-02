@@ -53,7 +53,7 @@ export function RequestDetailPage() {
         </>
       );
     }
-    return <LoadError what="this request" onRetry={() => void request.refetch()} />;
+    return <LoadError what="this request" error={request.error} onRetry={() => void request.refetch()} />;
   }
 
   const data = request.data;
@@ -157,7 +157,7 @@ function History({ requestId }: { requestId: string }) {
       {events.isPending ? (
         <TableSkeleton rows={3} />
       ) : events.isError ? (
-        <LoadError what="the history" onRetry={() => void events.refetch()} />
+        <LoadError what="the history" error={events.error} onRetry={() => void events.refetch()} />
       ) : (
         <Box component="ol" aria-label="History" m={0} p={0} style={{ listStyle: "none" }}>
           {events.data.results.map((event, index) => (
@@ -209,7 +209,7 @@ function Episodes({ requestId, title }: { requestId: string; title: string }) {
       {assignments.isPending ? (
         <TableSkeleton rows={3} />
       ) : assignments.isError ? (
-        <LoadError what="the episodes" onRetry={() => void assignments.refetch()} />
+        <LoadError what="the episodes" error={assignments.error} onRetry={() => void assignments.refetch()} />
       ) : assignments.data.results.length === 0 ? (
         <Text c="dimmed" size="sm">
           No episodes assigned yet.

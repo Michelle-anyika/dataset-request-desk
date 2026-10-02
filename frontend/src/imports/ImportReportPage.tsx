@@ -33,7 +33,7 @@ export function ImportReportPage() {
         </>
       );
     }
-    return <LoadError what="this import" onRetry={() => void batch.refetch()} />;
+    return <LoadError what="this import" error={batch.error} onRetry={() => void batch.refetch()} />;
   }
 
   const data = batch.data;
@@ -130,7 +130,7 @@ function Issues({ id }: { id: string }) {
       {issues.isPending ? (
         <TableSkeleton />
       ) : issues.isError ? (
-        <LoadError what="the rows" onRetry={() => void issues.refetch()} />
+        <LoadError what="the rows" error={issues.error} onRetry={() => void issues.refetch()} />
       ) : issues.data.results.length === 0 ? (
         <Text size="sm" c="dimmed">
           {severity ? `No ${severity} rows.` : "Every row was clean."}

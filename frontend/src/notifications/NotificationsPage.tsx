@@ -47,7 +47,7 @@ export function NotificationsPage() {
         {list.isPending ? (
           <TableSkeleton />
         ) : list.isError ? (
-          <LoadError what="your notifications" onRetry={() => void list.refetch()} />
+          <LoadError what="your notifications" error={list.error} onRetry={() => void list.refetch()} />
         ) : list.data.results.length === 0 ? (
           <EmptyState title={unreadOnly ? "Nothing unread" : "No notifications yet"}>You're all caught up.</EmptyState>
         ) : (

@@ -25,6 +25,7 @@ import { useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router";
 
 import { ApiError } from "../api/client";
+import { describeError } from "../api/errors";
 import { useAssignEpisodes, useEpisodes, useUnassignEpisode } from "../api/episodes";
 import { newIdempotencyKey } from "../api/idempotency";
 import { ASSIGNMENTS_PAGE_SIZE, useAssignments, useRequest } from "../api/requests";
@@ -57,7 +58,7 @@ export function AssignEpisodesPage() {
     if (request.error instanceof ApiError && request.error.status === 404) {
       return <EmptyState title="Request not found" />;
     }
-    return <LoadError what="this request" onRetry={() => void request.refetch()} />;
+    return <LoadError what="this request" error={request.error} onRetry={() => void request.refetch()} />;
   }
 
   const data = request.data;
@@ -216,7 +217,7 @@ function AvailableEpisodes({ request, missing }: { request: DatasetRequest; miss
         {episodes.isPending ? (
           <TableSkeleton />
         ) : episodes.isError ? (
-          <LoadError what="the episodes" onRetry={() => void episodes.refetch()} />
+          <LoadError what="the episodes" error={episodes.error} onRetry={() => void episodes.refetch()} />
         ) : rows.length === 0 ? (
           <EmptyState title="No episodes available">
             None of this task's {qualities.join(" or ")} episodes are free. Import more, or widen the filters.
@@ -294,7 +295,7 @@ function CurrentAssignments({ requestId }: { requestId: string }) {
       if (page > 1 && assignments.data?.results.length === 1) setPage(page - 1);
       notifications.show({ color: "gray", title: "Episode removed", message: `${episodeId} is free for other requests.` });
     } catch (failure) {
-      setError(failure instanceof ApiError ? failure.message : "We couldn't reach the server. Try again.");
+      setError(describeError(failure));
     }
   };
 
@@ -319,7 +320,7 @@ function CurrentAssignments({ requestId }: { requestId: string }) {
         {assignments.isPending ? (
           <TableSkeleton rows={3} />
         ) : assignments.isError ? (
-          <LoadError what="the assigned episodes" onRetry={() => void assignments.refetch()} />
+          <LoadError what="the assigned episodes" error={assignments.error} onRetry={() => void assignments.refetch()} />
         ) : assignments.data.results.length === 0 ? (
           <Text size="sm" c="dimmed">
             Nothing assigned yet.
@@ -363,7 +364,7 @@ const REASONS: Record<string, string> = {
 
 /** The API refuses a bulk assignment as a whole and says why, per episode: show all of it at once. */
 function describeFailure(error: unknown): ReactNode {
-  if (!(error instanceof ApiError)) return "We couldn't reach the server. Nothing was assigned; try again.";
+  if (!(error instanceof ApiError) || error.status === 0 || error.status >= 500) return `${describeError(error)} Nothing was assigned.`;
   const details = (error.details ?? {}) as Record<string, string | string[]>;
   if (error.code === "episodes_already_assigned") {
     return (
@@ -396,5 +397,5 @@ function describeFailure(error: unknown): ReactNode {
       </Stack>
     );
   }
-  return error.message;
+  return describeError(error);
 }

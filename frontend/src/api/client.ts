@@ -53,7 +53,12 @@ export interface RequestOptions {
   headers?: Record<string, string>;
   /** Public auth endpoints: no bearer token, and a 401 is an answer, not a reason to refresh. */
   anonymous?: boolean;
+  /** Give up after this long. Uploads get longer: a 20 MB export takes a while on a slow connection. */
+  timeoutMs?: number;
 }
+
+const TIMEOUT_MS = 30_000;
+const UPLOAD_TIMEOUT_MS = 120_000;
 
 export function buildUrl(path: string, query?: Query) {
   const params = new URLSearchParams();
@@ -75,12 +80,20 @@ async function send(path: string, options: RequestOptions): Promise<Response> {
     body = JSON.stringify(options.body);
   }
   if (!options.anonymous && accessToken) headers.Authorization = `Bearer ${accessToken}`;
-  return fetch(buildUrl(path, options.query), {
-    method: options.method ?? "GET",
-    headers,
-    body,
-    credentials: "same-origin",
-  });
+  const timeout = AbortSignal.timeout(options.timeoutMs ?? (body instanceof FormData ? UPLOAD_TIMEOUT_MS : TIMEOUT_MS));
+  try {
+    return await fetch(buildUrl(path, options.query), {
+      method: options.method ?? "GET",
+      headers,
+      body,
+      credentials: "same-origin",
+      signal: timeout,
+    });
+  } catch {
+    // No HTTP answer at all: no answer in time, or offline, DNS, a dropped connection.
+    if (timeout.aborted) throw new ApiError(0, "timeout", "The server took too long to answer.");
+    throw new ApiError(0, "network", "We couldn't reach the server.");
+  }
 }
 
 async function toError(response: Response): Promise<ApiError> {

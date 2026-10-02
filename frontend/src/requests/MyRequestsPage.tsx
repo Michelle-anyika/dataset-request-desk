@@ -42,7 +42,7 @@ export function MyRequestsPage() {
         {list.isPending ? (
           <TableSkeleton />
         ) : list.isError ? (
-          <LoadError what="your requests" onRetry={() => void list.refetch()} />
+          <LoadError what="your requests" error={list.error} onRetry={() => void list.refetch()} />
         ) : list.data.results.length === 0 ? (
           status ? (
             <EmptyState title={`No ${STATUS_LABELS[status].toLowerCase()} requests`}>Try another filter.</EmptyState>
