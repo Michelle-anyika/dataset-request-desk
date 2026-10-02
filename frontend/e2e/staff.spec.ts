@@ -64,3 +64,12 @@ test("each role's pages are closed to other roles", async ({ page }) => {
     await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
   }
 });
+
+test("a visitor learns what the platform is, then signs in from the landing page", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("robot training data");
+  await expectAccessible(page);
+  await page.getByRole("main").getByRole("link", { name: "Sign in" }).first().click();
+  await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+  await expectAccessible(page);
+});
