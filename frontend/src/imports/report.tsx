@@ -36,7 +36,7 @@ export function ResultSummary({ batch }: { batch: ImportBatch }) {
       {parts
         .filter(([count]) => count > 0)
         .map(([count, label]) => (
-          <Text key={label} size="sm" c={label === "skipped" ? "orange.7" : undefined}>
+          <Text key={label} size="sm" c={label === "skipped" ? "var(--mantine-color-orange-light-color)" : undefined}>
             {count.toLocaleString("en-GB")} {label}
           </Text>
         ))

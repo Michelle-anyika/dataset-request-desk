@@ -123,7 +123,7 @@ function QueueRow({ request, onOpen }: { request: DatasetRequest; onOpen: () => 
         {open && (
           <Group gap={4} wrap="nowrap">
             {overdue && <IconAlertTriangle size={12} color="var(--mantine-color-orange-6)" aria-hidden />}
-            <Text size="xs" c={overdue ? "orange.7" : "dimmed"} fw={overdue ? 600 : undefined}>
+            <Text size="xs" c={overdue ? "var(--mantine-color-orange-light-color)" : "dimmed"} fw={overdue ? 600 : undefined}>
               {deadlineHint(request.deadline)}
             </Text>
           </Group>

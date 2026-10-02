@@ -26,24 +26,18 @@ export function NotificationBell() {
   return (
     <Popover opened={opened} onChange={setOpened} position="bottom-end" width={360} shadow="md" withinPortal>
       <Popover.Target>
-        <Indicator
-          disabled={!unread}
-          label={unread > 99 ? "99+" : unread}
-          size={18}
-          offset={4}
-          color="red"
-          aria-hidden={false}
+        {/* The button is the trigger, so its popup attributes are on a button; the count is in its label. */}
+        <ActionIcon
+          variant="subtle"
+          color="gray"
+          size="lg"
+          aria-label={`Notifications, ${unread ? `${unread} unread` : "none unread"}`}
+          onClick={() => setOpened((open) => !open)}
         >
-          <ActionIcon
-            variant="subtle"
-            color="gray"
-            size="lg"
-            aria-label={`Notifications, ${unread ? `${unread} unread` : "none unread"}`}
-            onClick={() => setOpened((open) => !open)}
-          >
+          <Indicator disabled={!unread} label={unread > 99 ? "99+" : unread} size={18} offset={2} color="red" aria-hidden>
             <IconBell size={20} />
-          </ActionIcon>
-        </Indicator>
+          </Indicator>
+        </ActionIcon>
       </Popover.Target>
       <Popover.Dropdown p={0}>
         <Group justify="space-between" px="md" py="sm">
