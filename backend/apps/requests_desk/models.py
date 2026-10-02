@@ -43,6 +43,8 @@ class DatasetRequest(models.Model):
             models.Index(fields=["client", "status"], name="requests_client_status_idx"),
             models.Index(fields=["status", "deadline"], name="requests_status_deadline_idx"),
             models.Index(fields=["status", "status_changed_at"], name="requests_status_changed_idx"),
+            # Default list order (newest first) and the analytics range filter on submission time.
+            models.Index(fields=["created_at"], name="requests_created_idx"),
         ]
 
     def __str__(self):

@@ -1,9 +1,9 @@
 from django.contrib.auth import get_user_model
-from django.utils import timezone
 from rest_framework import serializers
 
 from apps.catalog.models import Episode
 from apps.catalog.normalise import normalise_task_name
+from apps.core.dates import business_today
 from apps.requests_desk.assignments import MAX_EPISODES_PER_CALL, active_count
 from apps.requests_desk.models import Assignment, DatasetRequest, RequestStatus, RequestStatusEvent
 
@@ -52,7 +52,7 @@ class DatasetRequestSerializer(serializers.ModelSerializer):
         return value
 
     def validate_deadline(self, value):
-        if value < timezone.localdate():
+        if value < business_today():
             raise serializers.ValidationError("The deadline can't be in the past.")
         return value
 

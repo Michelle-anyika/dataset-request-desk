@@ -14,6 +14,7 @@ from django.utils import timezone
 from rest_framework import exceptions, status
 
 from apps.accounts.models import Role
+from apps.analytics.cache import bump_data_version
 from apps.notifications.services import notify_status_change
 from apps.requests_desk.assignments import active_count
 from apps.requests_desk.models import DatasetRequest, RequestStatus, RequestStatusEvent
@@ -112,4 +113,5 @@ def transition(request: DatasetRequest, *, to_status: str, actor, comment: str =
         comment=comment.strip(),
     )
     notify_status_change(request, event)
+    transaction.on_commit(bump_data_version)
     return request
