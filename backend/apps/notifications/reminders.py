@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 
 from django.db.models import Count, Exists, F, Max, OuterRef, Q
 
+from apps.core.dates import business_date
 from apps.notifications.models import Notification, NotificationKind
 from apps.notifications.services import active_operators, delivering_operator, send_pending_emails
 from apps.requests_desk.models import DatasetRequest, RequestStatus
@@ -80,7 +81,7 @@ def _review_reminders(now: datetime, report: ReminderReport) -> list[Notificatio
 def _deadline_warnings(now: datetime, report: ReminderReport) -> list[Notification]:
     due = list(
         DatasetRequest.objects.filter(
-            status__in=OPEN_STATUSES, deadline__lte=now.date() + timedelta(days=DEADLINE_WARNING_DAYS)
+            status__in=OPEN_STATUSES, deadline__lte=business_date(now) + timedelta(days=DEADLINE_WARNING_DAYS)
         ).exclude(notifications__kind=K.DEADLINE_APPROACHING)
     )
     if not due:

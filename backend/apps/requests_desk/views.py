@@ -1,13 +1,15 @@
-from django.db.models import Count, Q
+from django.db.models import Count, IntegerField, OuterRef, Subquery
+from django.db.models.functions import Coalesce
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from apps.accounts.models import Role
+from apps.core.openapi import error_response
 from apps.core.permissions import IsClient, IsOperator
 from apps.requests_desk import assignments, services, workflow
-from apps.requests_desk.models import DatasetRequest
+from apps.requests_desk.models import Assignment, DatasetRequest
 from apps.requests_desk.serializers import (
     AssignEpisodesSerializer,
     AssignmentHistorySerializer,
@@ -41,8 +43,17 @@ class DatasetRequestViewSet(
         if getattr(self, "swagger_fake_view", False):  # schema generation has no user
             return DatasetRequest.objects.none()
         user = self.request.user
+        # A correlated subquery, not JOIN + GROUP BY: PostgreSQL computes it only for the rows on the page,
+        # and the pagination COUNT(*) leaves it out. (The GROUP BY version cost ~3 s a page at 100k requests.)
+        active = (
+            Assignment.objects.filter(request=OuterRef("pk"), released_at__isnull=True)
+            .order_by()
+            .values("request")
+            .annotate(total=Count("id"))
+            .values("total")
+        )
         queryset = DatasetRequest.objects.select_related("client").annotate(
-            active_assignment_count=Count("assignments", filter=Q(assignments__released_at__isnull=True))
+            active_assignment_count=Coalesce(Subquery(active, output_field=IntegerField()), 0)
         )
         if user.role == Role.CLIENT:
             queryset = queryset.filter(client=user)
@@ -69,7 +80,10 @@ class DatasetRequestViewSet(
 
     @extend_schema(
         request=TransitionSerializer,
-        responses={200: DatasetRequestSerializer},
+        responses={
+            200: DatasetRequestSerializer,
+            409: error_response("Not a valid step from the current status, or too few episodes assigned."),
+        },
         description="Move the request through its workflow. Allowed steps depend on status and role.",
     )
     @action(detail=True, methods=["post"], url_path="transitions")
@@ -99,7 +113,10 @@ class DatasetRequestViewSet(
     @extend_schema(
         methods=["POST"],
         request=AssignEpisodesSerializer,
-        responses={201: AssignResultSerializer},
+        responses={
+            201: AssignResultSerializer,
+            409: error_response("The request is not in progress, or an episode is assigned elsewhere."),
+        },
         description="Assign episodes (operators and admins). All or nothing: any problem assigns none.",
     )
     @action(detail=True, methods=["get", "post"], url_path="assignments")
@@ -127,7 +144,9 @@ class DatasetRequestViewSet(
         return self.get_paginated_response(serializer_class(page, many=True).data)
 
     @extend_schema(
-        request=None, responses={204: None}, description="Release an episode (operators and admins)."
+        request=None,
+        responses={204: None, 409: error_response("The request is not in progress.")},
+        description="Release an episode (operators and admins).",
     )
     @action(detail=True, methods=["delete"], url_path=r"assignments/(?P<episode_id>[^/]+)")
     def unassign(self, request, pk=None, episode_id=None):

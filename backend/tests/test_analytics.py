@@ -198,9 +198,13 @@ def test_clients_cannot_see_analytics(api_as):
     assert api_as("client").get(ANALYTICS).status_code == 403
 
 
-def test_everything_is_computed_in_a_fixed_number_of_queries(operator, django_assert_max_num_queries):
+def test_the_aggregations_are_a_fixed_number_of_queries(django_assert_max_num_queries):
+    """Four SQL aggregations however many episodes there are. (Repeat calls are served by the cache; see
+    test_analytics_cache.py.)"""
+    from apps.analytics.views import _compute
+
     for n in range(50):
         episode(n, at(1 + n % 28), robot="arm-01" if n % 2 else "mobile-01")
 
     with django_assert_max_num_queries(4):  # per day, top tasks, status counts, median
-        get(operator)
+        _compute(date(2026, 8, 1), date(2026, 8, 31))

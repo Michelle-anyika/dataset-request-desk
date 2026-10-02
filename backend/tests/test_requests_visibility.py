@@ -154,3 +154,19 @@ def test_listing_uses_a_fixed_number_of_queries(api_as, django_assert_max_num_qu
 
 def test_listing_requires_authentication(api_client):
     assert api_client.get(REQUESTS).status_code == 401
+
+
+def test_listing_does_not_aggregate_the_whole_table(api_as):
+    """Per-row counts must be computed for the page only. A GROUP BY over every request made each page cost
+    grow with the table: about 3 s per call with 100k requests under load."""
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    client = api_as("operator")
+
+    with CaptureQueriesContext(connection) as queries:
+        client.get(REQUESTS)
+
+    page_and_count = [q["sql"] for q in queries.captured_queries if "dataset_requests" in q["sql"]]
+    assert page_and_count
+    assert not any("GROUP BY" in sql for sql in page_and_count)

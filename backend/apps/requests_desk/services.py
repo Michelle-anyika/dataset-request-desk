@@ -2,6 +2,7 @@
 
 from django.db import transaction
 
+from apps.analytics.cache import bump_data_version
 from apps.notifications.services import notify_status_change
 from apps.requests_desk.models import DatasetRequest, RequestStatus, RequestStatusEvent
 
@@ -23,4 +24,5 @@ def submit_request(client, *, task_name, episodes_requested, deadline, notes="")
         changed_at=request.status_changed_at,
     )
     notify_status_change(request, event)
+    transaction.on_commit(bump_data_version)
     return request
