@@ -114,7 +114,7 @@ JSON events on the `desk.security` logger, with `request_id` and client IP:
 | API responses | `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'`, `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: same-origin`, `Cross-Origin-Opener-Policy: same-origin` |
 | Swagger UI (development only) | Relaxed CSP allowing its jsDelivr assets and inline start-up script; still `frame-ancestors 'none'` |
 | Switch | `HTTPS_ONLY`, **on unless `DEBUG`** (secure by default); `/health` exempt from the redirect for platform health checks |
-| Frontend | `Content-Security-Policy: default-src 'self'` (no inline scripts), same headers as above |
+| Frontend | `Content-Security-Policy: default-src 'self'` (no inline scripts; inline styles for Mantine), same headers as above, plus `Cross-Origin-Resource-Policy: same-origin` and `Cross-Origin-Embedder-Policy: require-corp` |
 | CORS | Not needed: the frontend and API share one origin through the `/api` proxy |
 
 ## 6. OWASP Top 10 (2021)
