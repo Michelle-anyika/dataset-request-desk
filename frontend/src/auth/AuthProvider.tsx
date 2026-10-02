@@ -32,7 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setSessionExpiredHandler(end);
     let active = true;
-    (async () => {
+    void (async () => {
       const restored = (await refreshSession()) && (await api<User>("/api/auth/me/").catch(() => null));
       if (!active) return;
       if (restored) {
