@@ -187,6 +187,37 @@ jobs:
         if: always()
         run: docker compose down --volumes
 
+  # Property-based fuzzing (docs/testing.md "Fuzzing"): thousands of generated requests, valid and invalid,
+  # against the stack in production mode. Fails on any 500, any response the schema doesn't describe, and any
+  # invalid input the API accepts.
+  fuzz:
+    name: API fuzzing (Schemathesis)
+    needs: detect
+    if: needs.detect.outputs.compose == 'true'
+    runs-on: ubuntu-latest
+    env:
+      DJANGO_DEBUG: "false"  # production error pages and settings, not the debug ones
+      THROTTLE_ANON_RATE: 1000000/min  # the fuzzer is one fast client; rate limits have their own tests
+      THROTTLE_USER_RATE: 1000000/hour
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build and start the stack
+        run: docker compose up --build --detach --wait --wait-timeout 180
+      - name: Fuzz the API
+        run: sh fuzz/run.sh
+      - name: Upload the fuzzing report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: fuzz-report
+          path: fuzz/report/
+      - name: Show logs
+        if: failure()
+        run: docker compose logs api
+      - name: Stop the stack
+        if: always()
+        run: docker compose down --volumes
+
   # Static analysis and coverage of new code; the job fails if the SonarCloud quality gate fails.
   sonarcloud:
     name: SonarCloud
@@ -211,7 +242,7 @@ jobs:
   ci-ok:
     name: CI OK
     if: always()
-    needs: [hygiene, dependency-audit, detect, backend, frontend, compose, sonarcloud]
+    needs: [hygiene, dependency-audit, detect, backend, frontend, compose, fuzz, sonarcloud]
     runs-on: ubuntu-latest
     steps:
       - name: Fail if any job failed
