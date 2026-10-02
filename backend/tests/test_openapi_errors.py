@@ -54,10 +54,10 @@ def test_every_operation_can_be_rate_limited(operations):
         # Signed-in endpoints: 401 without a valid token, 403 for the wrong role.
         ("requests_list", {"400", "401", "403", "404", "429"}),  # filters (400), a page past the end (404)
         ("requests_retrieve", {"401", "403", "404", "429"}),
-        ("requests_create", {"400", "401", "403", "429"}),
+        ("requests_create", {"400", "401", "403", "409", "422", "429"}),  # 409/422: Idempotency-Key
         # Workflow and assignment conflicts.
-        ("requests_transitions_create", {"400", "401", "403", "404", "409", "429"}),
-        ("requests_assignments_create", {"400", "401", "403", "404", "409", "429"}),
+        ("requests_transitions_create", {"400", "401", "403", "404", "409", "422", "429"}),
+        ("requests_assignments_create", {"400", "401", "403", "404", "409", "422", "429"}),
         ("requests_assignments_destroy", {"401", "403", "404", "409", "429"}),
         ("users_partial_update", {"400", "401", "403", "404", "409", "429"}),
         # Public auth endpoints: wrong credentials or no session are 401; cross-site requests are 403.

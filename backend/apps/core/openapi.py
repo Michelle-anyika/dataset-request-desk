@@ -6,12 +6,15 @@ The common errors are derived from the operation itself, so new endpoints get th
   (a page past the end);
 - 401 and 403 when it needs a signed-in user; 429 everywhere (every endpoint is rate limited).
 
+Operations decorated with ``apps.core.idempotency.idempotent`` also document the ``Idempotency-Key``
+header and its errors (409 key in use, 422 key reused).
+
 Errors that depend on the business rules (409 conflicts, the public auth endpoints' 401 and 403) are
 declared on the view with ``error_response``.
 """
 
 from drf_spectacular.openapi import AutoSchema as SpectacularAutoSchema
-from drf_spectacular.utils import OpenApiResponse
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse
 from rest_framework import serializers
 
 
@@ -32,9 +35,27 @@ def error_response(description: str) -> OpenApiResponse:
 
 
 PAGE_PARAMETERS = {"page", "page_size"}
+KEY_IN_USE = "A request with this Idempotency-Key is still being processed."
+
+
+IDEMPOTENCY_KEY = OpenApiParameter(
+    "Idempotency-Key",
+    str,
+    OpenApiParameter.HEADER,
+    description="Optional, any unique string (e.g. a UUID). A retry with the same key and body replays the "
+    "first response instead of doing the work again. Kept for 24 hours.",
+)
 
 
 class AutoSchema(SpectacularAutoSchema):
+    def get_override_parameters(self):
+        parameters = super().get_override_parameters()
+        return [*parameters, IDEMPOTENCY_KEY] if self._is_idempotent() else parameters
+
+    def _is_idempotent(self):
+        handler = getattr(self.view, getattr(self.view, "action", None) or self.method.lower(), None)
+        return self.method in getattr(handler, "idempotent_methods", ())
+
     def get_operation(self, path, path_regex, path_prefix, method, registry):
         operation = super().get_operation(path, path_regex, path_prefix, method, registry)
         if operation is None:
@@ -42,7 +63,10 @@ class AutoSchema(SpectacularAutoSchema):
         error = {"content": {"application/json": {"schema": self._error_schema()}}}
         responses = operation.setdefault("responses", {})
         for code, description in self._common_errors(operation, path):
-            responses.setdefault(code, {"description": description, **error})
+            if code not in responses:
+                responses[code] = {"description": description, **error}
+            elif description == KEY_IN_USE:  # the view's own 409 (a business conflict) gains a second cause
+                responses[code]["description"] += f" Or: {KEY_IN_USE[0].lower()}{KEY_IN_USE[1:]}"
         return dict(operation, responses=dict(sorted(responses.items())))
 
     def _error_schema(self):
@@ -57,6 +81,9 @@ class AutoSchema(SpectacularAutoSchema):
         if signed_in:
             yield "401", "Not signed in, or the access token is invalid or expired."
             yield "403", "Signed in, but your role may not do this."
+        if self._is_idempotent():
+            yield "409", KEY_IN_USE
+            yield "422", "This Idempotency-Key was already used for a different request."
         if "{" in path or query & PAGE_PARAMETERS:
             yield "404", "Not found, or not visible to you (or a page past the end)."
         yield "429", "Too many requests; retry after the number of seconds in `Retry-After`."

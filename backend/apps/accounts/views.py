@@ -22,6 +22,7 @@ from apps.accounts.serializers import (
     UserSerializer,
     UserUpdateSerializer,
 )
+from apps.core.idempotency import idempotent
 from apps.core.openapi import error_response
 from apps.core.permissions import IsAdmin
 
@@ -194,6 +195,7 @@ class UserViewSet(
         return super().list(request, *args, **kwargs)
 
     @extend_schema(request=UserCreateSerializer, responses={201: ManagedUserSerializer})
+    @idempotent()
     def create(self, request):
         payload = UserCreateSerializer(data=request.data)
         payload.is_valid(raise_exception=True)
