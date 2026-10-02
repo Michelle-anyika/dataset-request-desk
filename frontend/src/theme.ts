@@ -1,4 +1,4 @@
-import { createTheme, Modal, Notification, type CSSVariablesResolver, type MantineColorsTuple } from "@mantine/core";
+import { createTheme, Modal, Notification, Pagination, type CSSVariablesResolver, type MantineColorsTuple } from "@mantine/core";
 
 // Brand: a deep red. Errors and destructive actions keep Mantine's brighter `red`, always with an icon and
 // text, so the brand colour is never mistaken for "something went wrong".
@@ -41,6 +41,14 @@ export const theme = createTheme({
   cursorType: "pointer",
   components: {
     Modal: Modal.extend({ defaultProps: { closeButtonProps: { "aria-label": "Close dialog" } } }),
+    // The previous/next arrows are icons: give them names (page numbers already have one).
+    Pagination: Pagination.extend({
+      defaultProps: {
+        getControlProps: (control: "first" | "previous" | "last" | "next") => ({
+          "aria-label": { first: "First page", previous: "Previous page", next: "Next page", last: "Last page" }[control],
+        }),
+      },
+    }),
     // Toasts: a named close button, and description text at full contrast.
     Notification: Notification.extend({
       defaultProps: { closeButtonProps: { "aria-label": "Close notification" } },
