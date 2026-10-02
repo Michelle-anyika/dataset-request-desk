@@ -40,7 +40,7 @@ KEY_IN_USE = "A request with this Idempotency-Key is still being processed."
 
 IDEMPOTENCY_KEY = OpenApiParameter(
     "Idempotency-Key",
-    str,
+    {"type": "string", "minLength": 1, "maxLength": 255, "pattern": "^[ -~]+$"},  # printable ASCII
     OpenApiParameter.HEADER,
     description="Optional, any unique string (e.g. a UUID). A retry with the same key and body replays the "
     "first response instead of doing the work again. Kept for 24 hours.",
