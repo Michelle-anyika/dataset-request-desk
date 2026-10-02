@@ -64,11 +64,11 @@ def test_pagination_parameters_are_allowed_on_lists(operator):
     assert operator.get("/api/requests/", {"page": 1, "page_size": 10}).status_code == 200
 
 
-@pytest.mark.parametrize("value", ["null", "0", "-1", "ten"])
-def test_a_page_size_must_be_a_positive_whole_number(operator, value):
+@pytest.mark.parametrize("value", ["null", "0", "-1", "ten", "101"])
+def test_a_page_size_must_be_between_1_and_100(operator, value):
     response = operator.get("/api/requests/", {"page_size": value})
 
-    assert details(response) == {"page_size": ["A whole number of at least 1."]}
+    assert details(response) == {"page_size": ["A whole number from 1 to 100."]}
 
 
 def test_pagination_parameters_are_given_once(operator):

@@ -133,13 +133,14 @@ class TestPagination:
         assert len(body["results"]) == 25
         assert body["next"] is not None
 
-    def test_page_size_can_be_chosen_but_is_capped_at_100(self, api_as):
+    def test_page_size_can_be_chosen_up_to_100(self, api_as):
         client = api_as("client")
         for _ in range(105):
             submit(client.user)
 
         assert len(client.get(REQUESTS, {"page_size": 50}).json()["results"]) == 50
-        assert len(client.get(REQUESTS, {"page_size": 10_000}).json()["results"]) == 100
+        assert len(client.get(REQUESTS, {"page_size": 100}).json()["results"]) == 100
+        assert client.get(REQUESTS, {"page_size": 10_000}).status_code == 400  # refused, not silently capped
 
 
 def test_listing_uses_a_fixed_number_of_queries(api_as, django_assert_max_num_queries):
