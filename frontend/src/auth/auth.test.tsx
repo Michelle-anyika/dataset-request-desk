@@ -10,7 +10,7 @@ import { admin, apiError, client, noSession, operator, sessionFor } from "../tes
 async function signIn(email: string, password = "a-good-password") {
   const user = userEvent.setup();
   await user.type(await screen.findByLabelText(/email/i), email);
-  await user.type(screen.getByLabelText(/password/i), password);
+  await user.type(screen.getByLabelText(/^password/i, { selector: "input" }), password);
   await user.click(screen.getByRole("button", { name: /sign in/i }));
   return user;
 }

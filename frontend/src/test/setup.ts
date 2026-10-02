@@ -6,7 +6,7 @@ import { setAccessToken } from "../api/client";
 import { server } from "./server";
 
 // Any request without a handler fails the test: nothing reaches a real network.
-beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
+beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
 afterEach(() => {
   cleanup();
   server.resetHandlers();
