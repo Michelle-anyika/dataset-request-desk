@@ -2,7 +2,7 @@ import path from "node:path";
 
 import { expect, test } from "@playwright/test";
 
-import { expectAccessible, signIn } from "./helpers";
+import { expectAccessible, signIn, signOut } from "./helpers";
 
 test("re-importing the seed export changes nothing and reports every messy row", async ({ page }) => {
   await signIn(page, "operator");
@@ -49,8 +49,8 @@ test("an admin creates an account that can then sign in", async ({ page }) => {
   await dialog.getByRole("button", { name: "Create user" }).click();
   await expect(page.getByRole("row", { name: new RegExp(name) })).toBeVisible();
 
-  await page.getByRole("button", { name: "Account menu" }).click();
-  await page.getByRole("menuitem", { name: "Sign out", exact: true }).click();
+  // Wait for the sign-in page: until the logout request returns, "Email" would also match the users search box.
+  await signOut(page);
   await page.getByLabel("Email").fill(email);
   await page.getByRole("textbox", { name: "Password", exact: true }).fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
