@@ -293,11 +293,11 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0  # full history for accurate "new code" and blame
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: backend-coverage
           path: backend
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         if: needs.frontend.result == 'success'
         with:
           name: frontend-coverage
