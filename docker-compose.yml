@@ -68,5 +68,16 @@ services:
       api:
         condition: service_healthy  # the api has applied the migrations
 
+  # The React app, served by nginx, which also proxies /api to the api service: one origin, so the refresh
+  # cookie works without CORS. Open http://localhost:8080.
+  web:
+    build:
+      context: ./frontend
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${WEB_PORT:-8080}:8080"
+
 volumes:
   pgdata:
