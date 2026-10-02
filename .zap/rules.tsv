@@ -1,0 +1,8 @@
+# ZAP baseline rules (.github/workflows/nightly.yml). Tab-separated: rule id, action, reason.
+# With this file, any rule not listed here fails the scan on a warning. INFO still shows in the report but does
+# not fail; IGNORE hides the alert. Accept a finding only with the reason here.
+10027	INFO	(Suspicious comments) The word "query" in bundled TanStack Query code; our source maps and comments are not shipped.
+10049	INFO	(Storable and cacheable content) Intended: hashed files under /assets are cached for a year, and the app shell is no-cache.
+10055	IGNORE	(CSP: style-src unsafe-inline) Mantine writes its theme variables into a <style> tag at runtime, so styles need unsafe-inline. Scripts stay limited to 'self', so injected markup cannot run code.
+10109	INFO	(Modern web application) Only a note that this is a single-page app.
+90005	INFO	(Sec-Fetch-Dest header is missing) Describes ZAP's own requests, which lack the headers browsers send; nothing the server sets.

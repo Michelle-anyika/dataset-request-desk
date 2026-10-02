@@ -28,3 +28,6 @@ coverage/
 Thumbs.db
 .idea/
 .vscode/
+
+# Load test output
+loadtest/summary.json
