@@ -47,7 +47,7 @@ export function NewRequestPage() {
         },
       });
       notifications.show({ color: "teal", title: "Request submitted", message: "The team has been notified." });
-      navigate(`/requests/${created.id}`, { replace: true });
+      void navigate(`/requests/${created.id}`, { replace: true });
     } catch (error) {
       if (error instanceof ApiError && error.status === 400) {
         form.setErrors(error.fieldErrors());
