@@ -1,0 +1,33 @@
+# Schemathesis: property-based fuzzing of the API from its OpenAPI schema (docs/testing.md "Fuzzing").
+# It sends thousands of generated requests, valid and invalid, and fails on any 500, any response that does
+# not match the documented schema, and any invalid input the API accepts.
+#
+# Every exception below is scoped to one operation and explained. Rules the schema cannot express (password
+# strength, a date range, "the file must be CSV") make a schema-valid request fail with a 400. That 400 is
+# correct, so only the "valid data must be accepted" check is turned off there. Every other check still runs.
+
+headers = { Authorization = "Bearer ${FUZZ_TOKEN}" }
+
+[generation]
+max-examples = 50
+
+# Ends every session of the fuzzing user, so every request after it would be a 401.
+[[operations]]
+include-path = "/api/auth/logout-all/"
+enabled = false
+
+# `from` and `to` can be at most 366 days apart: a rule across two fields.
+[[operations]]
+include-path = "/api/analytics/"
+checks.positive_data_acceptance.enabled = false
+
+# Passwords must pass Django's validators (length, not common, not like the email); emails must be unique.
+[[operations]]
+include-path-regex = "^/api/users/"
+checks.positive_data_acceptance.enabled = false
+
+# The upload must be a UTF-8 .csv export, not just any file.
+[[operations]]
+include-path = "/api/imports/"
+include-method = "POST"
+checks.positive_data_acceptance.enabled = false

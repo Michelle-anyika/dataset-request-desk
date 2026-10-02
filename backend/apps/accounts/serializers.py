@@ -3,6 +3,7 @@ from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
 from apps.accounts.models import Role
+from apps.core.query import BooleanParam, QueryParamsSerializer
 
 
 class LoginSerializer(serializers.Serializer):
@@ -77,7 +78,7 @@ class UserUpdateSerializer(serializers.Serializer):
         return value
 
 
-class UserFilterSerializer(serializers.Serializer):
+class UserFilterSerializer(QueryParamsSerializer):
     role = serializers.ChoiceField(choices=Role.choices, required=False)
-    is_active = serializers.ChoiceField(choices=["true", "false"], required=False)
+    is_active = BooleanParam()
     search = serializers.CharField(max_length=100, required=False, help_text="Email or name contains.")

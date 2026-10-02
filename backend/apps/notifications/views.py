@@ -1,11 +1,15 @@
 from django.utils import timezone
-from drf_spectacular.utils import OpenApiParameter, extend_schema
+from drf_spectacular.utils import extend_schema
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from apps.notifications.models import Notification
-from apps.notifications.serializers import NotificationSerializer, UnreadSummarySerializer
+from apps.notifications.serializers import (
+    NotificationFilterSerializer,
+    NotificationSerializer,
+    UnreadSummarySerializer,
+)
 
 
 class NotificationViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
@@ -17,11 +21,14 @@ class NotificationViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
         if getattr(self, "swagger_fake_view", False):  # schema generation has no user
             return Notification.objects.none()
         queryset = Notification.objects.filter(recipient=self.request.user).select_related("request")
-        if self.action == "list" and self.request.query_params.get("unread") == "true":
-            queryset = queryset.filter(read_at__isnull=True)
+        if self.action == "list":
+            filters = NotificationFilterSerializer(data=self.request.query_params)
+            filters.is_valid(raise_exception=True)
+            if filters.validated_data.get("unread") == "true":
+                queryset = queryset.filter(read_at__isnull=True)
         return queryset
 
-    @extend_schema(parameters=[OpenApiParameter("unread", bool, description="Only unread notifications.")])
+    @extend_schema(parameters=[NotificationFilterSerializer])
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
 

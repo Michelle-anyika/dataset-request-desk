@@ -24,3 +24,11 @@ markers = ["real_password_hashing: use the production password hasher instead of
 [tool.coverage.run]
 source = ["."]
 omit = ["tests/*", "*/migrations/*", "manage.py", "config/wsgi.py"]
+branch = true  # an untested `else` counts as a gap, not only an untested line
+
+[tool.coverage.report]
+fail_under = 95  # CI fails below this; currently ~99.5% (docs/testing.md "Coverage")
+show_missing = true
+skip_covered = true
+# Deliberately untested: display-only strings (admin and shell) and type-checking-only imports.
+exclude_also = ["def __str__", "if TYPE_CHECKING:"]

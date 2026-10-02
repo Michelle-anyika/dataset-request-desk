@@ -52,8 +52,9 @@ def test_every_operation_can_be_rate_limited(operations):
     ("operation_id", "expected"),
     [
         # Signed-in endpoints: 401 without a valid token, 403 for the wrong role.
-        ("requests_list", {"400", "401", "403", "404", "429"}),  # filters (400), a page past the end (404)
+        ("requests_list", {"400", "401", "403", "404", "429"}),  # bad filters (400), past the last page (404)
         ("requests_retrieve", {"401", "403", "404", "429"}),
+        ("imports_list", {"400", "401", "403", "404", "429"}),  # 400: unknown or malformed query parameters
         ("requests_create", {"400", "401", "403", "409", "422", "429"}),  # 409/422: Idempotency-Key
         # Workflow and assignment conflicts.
         ("requests_transitions_create", {"400", "401", "403", "404", "409", "422", "429"}),
@@ -68,3 +69,10 @@ def test_every_operation_can_be_rate_limited(operations):
 )
 def test_each_operation_lists_the_errors_it_can_return(operations, operation_id, expected):
     assert error_codes(operations[operation_id]) == expected
+
+
+def test_pagination_parameters_document_their_bounds(schema):
+    listing = {p["name"]: p["schema"] for p in schema["paths"]["/api/requests/"]["get"]["parameters"]}
+
+    assert listing["page"] == {"type": "integer", "minimum": 1}
+    assert listing["page_size"] == {"type": "integer", "minimum": 1, "maximum": 100}

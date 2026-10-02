@@ -4,6 +4,7 @@ from rest_framework import serializers
 from apps.catalog.models import Episode
 from apps.catalog.normalise import normalise_task_name
 from apps.core.dates import business_today
+from apps.core.query import BooleanParam, QueryParamsSerializer
 from apps.requests_desk.assignments import MAX_EPISODES_PER_CALL, active_count
 from apps.requests_desk.models import Assignment, DatasetRequest, RequestStatus, RequestStatusEvent
 
@@ -57,8 +58,8 @@ class DatasetRequestSerializer(serializers.ModelSerializer):
         return value
 
 
-class RequestFilterSerializer(serializers.Serializer):
-    """Query parameters for the request list. Unknown values are a 400, not silently ignored."""
+class RequestFilterSerializer(QueryParamsSerializer):
+    """Query parameters for the request list."""
 
     ORDERINGS = [
         "created_at",
@@ -74,6 +75,10 @@ class RequestFilterSerializer(serializers.Serializer):
         required=False, help_text="Operators and admins only; ignored for clients."
     )
     ordering = serializers.ChoiceField(choices=ORDERINGS, required=False)
+
+
+class AssignmentFilterSerializer(QueryParamsSerializer):
+    history = BooleanParam(help_text="Staff only: include released assignments.")
 
 
 class TransitionSerializer(serializers.Serializer):

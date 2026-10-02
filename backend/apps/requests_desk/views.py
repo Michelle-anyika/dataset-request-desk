@@ -1,6 +1,6 @@
 from django.db.models import Count, IntegerField, OuterRef, Subquery
 from django.db.models.functions import Coalesce
-from drf_spectacular.utils import OpenApiParameter, extend_schema
+from drf_spectacular.utils import extend_schema
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -9,10 +9,12 @@ from apps.accounts.models import Role
 from apps.core.idempotency import idempotent
 from apps.core.openapi import error_response
 from apps.core.permissions import IsClient, IsOperator
+from apps.core.query import QueryParamsSerializer
 from apps.requests_desk import assignments, services, workflow
 from apps.requests_desk.models import Assignment, DatasetRequest
 from apps.requests_desk.serializers import (
     AssignEpisodesSerializer,
+    AssignmentFilterSerializer,
     AssignmentHistorySerializer,
     AssignmentSerializer,
     AssignResultSerializer,
@@ -104,15 +106,14 @@ class DatasetRequestViewSet(
     @action(detail=True, methods=["get"], url_path="events")
     def events(self, request, pk=None):
         """Status history, oldest first, paginated (it grows with every rework). Append-only."""
+        QueryParamsSerializer(data=request.query_params).is_valid(raise_exception=True)
         dataset_request = self.get_object()  # scoped: another client's request is 404
         page = self.paginate_queryset(dataset_request.events.select_related("changed_by"))
         return self.get_paginated_response(RequestEventSerializer(page, many=True).data)
 
     @extend_schema(
         methods=["GET"],
-        parameters=[
-            OpenApiParameter("history", bool, description="Staff only: include released assignments.")
-        ],
+        parameters=[AssignmentFilterSerializer],
         responses={200: AssignmentHistorySerializer(many=True)},
         description="Episodes assigned to the request. Clients see what is currently assigned to their own.",
     )
@@ -142,9 +143,11 @@ class DatasetRequestViewSet(
             }
             return Response(result, status=status.HTTP_201_CREATED)
 
+        filters = AssignmentFilterSerializer(data=request.query_params)
+        filters.is_valid(raise_exception=True)
         is_staff = IsOperator().has_permission(request, self)
         rows = dataset_request.assignments.select_related("episode", "assigned_by", "released_by")
-        if not (is_staff and request.query_params.get("history") == "true"):
+        if not (is_staff and filters.validated_data.get("history") == "true"):
             rows = rows.filter(released_at__isnull=True)
         serializer_class = AssignmentHistorySerializer if is_staff else AssignmentSerializer
         page = self.paginate_queryset(rows)

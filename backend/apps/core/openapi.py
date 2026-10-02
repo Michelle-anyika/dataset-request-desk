@@ -2,7 +2,7 @@
 
 The common errors are derived from the operation itself, so new endpoints get them without annotations:
 
-- 400 when it takes a body or query filters; 404 when its path has an id or it is paginated
+- 400 when it takes a body or query parameters; 404 when its path has an id or it is paginated
   (a page past the end);
 - 401 and 403 when it needs a signed-in user; 429 everywhere (every endpoint is rate limited).
 
@@ -40,7 +40,7 @@ KEY_IN_USE = "A request with this Idempotency-Key is still being processed."
 
 IDEMPOTENCY_KEY = OpenApiParameter(
     "Idempotency-Key",
-    str,
+    {"type": "string", "minLength": 1, "maxLength": 255, "pattern": "^[ -~]+$"},  # printable ASCII
     OpenApiParameter.HEADER,
     description="Optional, any unique string (e.g. a UUID). A retry with the same key and body replays the "
     "first response instead of doing the work again. Kept for 24 hours.",
@@ -76,7 +76,7 @@ class AutoSchema(SpectacularAutoSchema):
         query = {p["name"] for p in operation.get("parameters", []) if p["in"] == "query"}
         signed_in = {} not in operation.get("security", [{}])
 
-        if "requestBody" in operation or query - PAGE_PARAMETERS:
+        if "requestBody" in operation or query:  # query parameters are validated strictly (apps.core.query)
             yield "400", "Invalid input; `details` lists the problems per field."
         if signed_in:
             yield "401", "Not signed in, or the access token is invalid or expired."

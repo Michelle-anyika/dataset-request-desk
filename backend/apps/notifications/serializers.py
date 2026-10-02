@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from apps.core.query import BooleanParam, QueryParamsSerializer
 from apps.notifications import messages
 from apps.notifications.models import Notification
 from apps.requests_desk.models import DatasetRequest
@@ -26,3 +27,7 @@ class NotificationSerializer(serializers.ModelSerializer):
 
 class UnreadSummarySerializer(serializers.Serializer):
     unread = serializers.IntegerField()
+
+
+class NotificationFilterSerializer(QueryParamsSerializer):
+    unread = BooleanParam(help_text="Only unread notifications.")

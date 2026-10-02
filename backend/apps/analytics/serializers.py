@@ -3,19 +3,25 @@ from datetime import timedelta
 from rest_framework import serializers
 
 from apps.core.dates import business_today
+from apps.core.query import QueryParamsSerializer
 
 MAX_RANGE_DAYS = 366  # bounded cost: at most a year per query
 DEFAULT_RANGE_DAYS = 30
 
 
-class AnalyticsRangeSerializer(serializers.Serializer):
-    """``from`` and ``to`` are inclusive dates. Defaults: the last 30 days, ending today."""
+class AnalyticsRangeSerializer(QueryParamsSerializer):
+    """``from`` and ``to`` are inclusive business dates (Kigali). Defaults: the last 30 days, ending today."""
+
+    pagination = False
 
     def get_fields(self):
         # "from" is a Python keyword, so the fields are declared here rather than as class attributes.
         return {
-            "from": serializers.DateField(required=False, help_text="Inclusive start date (UTC)."),
-            "to": serializers.DateField(required=False, help_text="Inclusive end date (UTC)."),
+            "from": serializers.DateField(required=False, help_text="Inclusive start date (Kigali)."),
+            "to": serializers.DateField(
+                required=False,
+                help_text=f"Inclusive end date (Kigali). The range is at most {MAX_RANGE_DAYS} days.",
+            ),
         }
 
     def validate(self, attrs):
