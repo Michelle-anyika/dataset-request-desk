@@ -17,8 +17,8 @@ defect, vulnerability or performance regression is found on a pull request or on
 | Static security | Insecure code patterns | Ruff Bandit rules (`S`), CodeQL (`security-extended`, Python and workflows) | every PR, weekly | ✅ |
 | Dependencies | Known-vulnerable packages | Dependabot, `pip-audit` on every lock file, `npm audit` | every PR, daily | ✅ |
 | Code quality | Duplication, complexity, code smells, coverage on new code | SonarCloud quality gate | every PR | ✅ |
-| End-to-end | Broken user journeys in a real browser | Playwright against the compose stack | merge to `develop`, nightly | #46 |
-| Accessibility | Screens that can't be used with assistive technology | axe (in Playwright) | merge to `develop`, nightly | #46 |
+| End-to-end | Broken user journeys in a real browser: submit → start → assign → deliver → notify → accept, imports, analytics, accounts, role boundaries | Playwright against the compose stack | every PR | ✅ |
+| Accessibility | Screens that can't be used with assistive technology (no serious or critical WCAG 2.1 AA violation) | axe on every screen the journeys visit | every PR | ✅ |
 | Dynamic security | Missing headers, insecure cookies, common web vulnerabilities in the running app | OWASP ZAP baseline | merge to `develop`, nightly | #47 |
 | Load | Slow endpoints or errors under concurrent use | k6: 10,000 requests from 200 users ([results](performance.md)) | on demand; nightly: #47 | ✅ |
 
@@ -103,6 +103,18 @@ DJANGO_DEBUG=false THROTTLE_ANON_RATE=1000000/min THROTTLE_USER_RATE=1000000/hou
 sh fuzz/run.sh                              # report in fuzz/report/
 
 # Load test: see docs/performance.md
+
+# Browser journeys with accessibility checks, against the stack (signs in often, so lift the login limit):
+THROTTLE_LOGIN_RATE=1000/min docker compose up -d --wait
+cd frontend && npx playwright install chromium && npm run e2e
+
+# Frontend unit and component tests
+cd frontend && npm test
 ```
 
-The end-to-end and dynamic security suites are added by #46 and #47, with their commands here.
+**What the browser tests found** before any user did:
+- **Contrast:** Mantine's dimmed text (3.3:1) and the text of light badges (as low as 1.7:1) were below WCAG AA's 4.5:1. They now pass, with colours measured against the badges' own backgrounds (`frontend/src/theme.ts`).
+- **Names and roles:** toast and dialog close buttons had no accessible name, and the bell's popup attributes sat on a `<div>` instead of its button.
+- **A sign-out bug:** after an admin signed out of `/users`, the next person to sign in, a client, was sent to `/users` and saw "Page not found". A sign-out now forgets the previous user's page; an expired session still returns you to yours.
+
+The dynamic security suite (ZAP) is added by #47, with its command here.
