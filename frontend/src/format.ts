@@ -50,6 +50,23 @@ export function formatDuration(seconds: number) {
   return minutes ? `${minutes} min ${seconds % 60} s` : `${seconds} s`;
 }
 
+/** "Name, Organisation", without repeating an organisation that is the name. */
+export function clientLabel(client: { full_name: string; organisation?: string }) {
+  const organisation = client.organisation?.trim();
+  return organisation && organisation !== client.full_name ? `${client.full_name}, ${organisation}` : client.full_name;
+}
+
+/** "since today" or "for 3 days". */
+export function waitedFor(since: string, now = new Date()) {
+  const days = daysSince(since, now);
+  return days === 0 ? "since today" : `for ${plural(days, "day")}`;
+}
+
+/** Progress colour: the brand while episodes are missing, teal once the request is fully assigned. */
+export function progressColor(assigned: number, requested: number) {
+  return assigned >= requested ? "teal" : "brand";
+}
+
 export function plural(count: number, one: string, many = `${one}s`) {
   return `${count.toLocaleString("en-GB")} ${count === 1 ? one : many}`;
 }

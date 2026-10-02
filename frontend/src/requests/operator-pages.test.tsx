@@ -162,7 +162,7 @@ describe("request detail for staff", () => {
     const user = userEvent.setup();
 
     expect(await screen.findByText(/Carla Client rejected the delivery/)).toBeInTheDocument();
-    expect(screen.getAllByText(/Two clips are blurry./).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText(/Two clips are blurry./)).length).toBeGreaterThan(0);
     await user.click(screen.getByRole("button", { name: "Start rework" }));
 
     await waitFor(() => expect(sent).toEqual([{ to_status: "in_progress", comment: "" }]));
