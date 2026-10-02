@@ -3,6 +3,8 @@ import { Navigate, Route, Routes } from "react-router";
 import { AuthProvider } from "./auth/AuthProvider";
 import { RequireAuth } from "./auth/RequireAuth";
 import { AssignEpisodesPage } from "./episodes/AssignEpisodesPage";
+import { ImportReportPage } from "./imports/ImportReportPage";
+import { ImportsPage } from "./imports/ImportsPage";
 import { AppLayout } from "./layout/AppLayout";
 import { LoginPage } from "./pages/LoginPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
@@ -39,6 +41,22 @@ export function App() {
             element={
               <RequireAuth roles={["operator", "admin"]}>
                 <AssignEpisodesPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/imports"
+            element={
+              <RequireAuth roles={["operator", "admin"]}>
+                <ImportsPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/imports/:id"
+            element={
+              <RequireAuth roles={["operator", "admin"]}>
+                <ImportReportPage />
               </RequireAuth>
             }
           />
