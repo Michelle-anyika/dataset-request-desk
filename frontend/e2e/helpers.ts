@@ -24,6 +24,11 @@ export async function signOut(page: Page) {
 
 /** No serious or critical WCAG 2.1 A/AA violations on the page as it is now. */
 export async function expectAccessible(page: Page) {
+  // A popover or modal that is still fading in is half transparent, and axe would measure that contrast.
+  // Infinite animations (loaders) never finish, so they don't count.
+  await page.waitForFunction(() =>
+    document.getAnimations().every((a) => a.playState !== "running" || a.effect?.getTiming().iterations === Infinity),
+  );
   const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
   const blocking = results.violations.filter((v) => v.impact === "serious" || v.impact === "critical");
   // Each violation with the HTML that caused it, so a failure says exactly what to fix.
