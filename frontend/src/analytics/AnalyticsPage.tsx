@@ -142,7 +142,7 @@ function EpisodesPerDay({ data }: { data: Analytics }) {
   const [asTable, setAsTable] = useState(false);
   // One row per day, one column per robot: the shape both the chart and the table need.
   const { rows, robots } = useMemo(() => {
-    const robotIds = [...new Set(data.episodes_per_day.map((day) => day.robot_id))].sort();
+    const robotIds = [...new Set(data.episodes_per_day.map((day) => day.robot_id))].sort((a, b) => a.localeCompare(b));
     const byDate = new Map<string, Record<string, number>>();
     for (const { date, robot_id, episodes } of data.episodes_per_day) {
       const row = byDate.get(date) ?? {};
