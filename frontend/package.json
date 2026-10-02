@@ -16,7 +16,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "api:types": "openapi-typescript src/api/openapi.json -o src/api/schema.d.ts",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "e2e:install": "playwright install --with-deps chromium"
   },
   "dependencies": {
     "@mantine/charts": "9.6.3",

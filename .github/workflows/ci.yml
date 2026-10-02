@@ -264,7 +264,7 @@ jobs:
         working-directory: frontend
         run: |
           npm ci --ignore-scripts
-          npx playwright install --with-deps chromium
+          npm run e2e:install  # the Playwright pinned in package-lock.json, not whatever npx would fetch
       - name: Run the journeys
         working-directory: frontend
         run: npm run e2e

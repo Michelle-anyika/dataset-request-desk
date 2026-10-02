@@ -106,7 +106,7 @@ sh fuzz/run.sh                              # report in fuzz/report/
 
 # Browser journeys with accessibility checks, against the stack (signs in often, so lift the login limit):
 THROTTLE_LOGIN_RATE=1000/min docker compose up -d --wait
-cd frontend && npx playwright install chromium && npm run e2e
+cd frontend && npm run e2e:install && npm run e2e
 
 # Frontend unit and component tests
 cd frontend && npm test
