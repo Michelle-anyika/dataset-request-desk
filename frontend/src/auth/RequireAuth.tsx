@@ -8,12 +8,14 @@ import { useAuth } from "./AuthProvider";
 
 /** Only signed-in users (optionally of some roles) see `children`; others go to sign-in. */
 export function RequireAuth({ roles, children }: { roles?: Role[]; children: ReactNode }) {
-  const { status, user } = useAuth();
+  const { status, user, endReason } = useAuth();
   const location = useLocation();
 
   if (status === "loading") return <FullPageLoader />;
   if (status === "signed-out" || !user) {
-    return <Navigate to="/login" replace state={{ from: location }} />;
+    // Come back here after signing in, unless someone signed out on purpose: the next person to sign in
+    // starts on their own home page, not on the previous user's (maybe forbidden) page.
+    return <Navigate to="/login" replace state={endReason === "signed-out" ? undefined : { from: location }} />;
   }
   // A page for another role doesn't exist for this user: the same answer as the API's 404.
   if (roles && !roles.includes(user.role)) return <NotFoundPage />;

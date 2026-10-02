@@ -37,7 +37,7 @@ export function EmptyState({ title, children, action }: { title: string; childre
 
 export function TableSkeleton({ rows = 5 }: { rows?: number }) {
   return (
-    <Stack gap="xs" aria-label="Loading" aria-busy>
+    <Stack gap="xs" role="status" aria-label="Loading" aria-busy>
       {Array.from({ length: rows }, (_, index) => (
         <Skeleton key={index} height={36} radius="sm" />
       ))}

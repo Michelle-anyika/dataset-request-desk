@@ -87,7 +87,7 @@ function Counts({ batch }: { batch: ImportBatch }) {
           <Text size="xs" c="dimmed" tt="uppercase" fw={600}>
             {label}
           </Text>
-          <Text fz={26} fw={700} c={value && color ? `${color}.7` : undefined}>
+          <Text fz={26} fw={700} c={value && color ? `var(--mantine-color-${color}-light-color)` : undefined}>
             {value.toLocaleString("en-GB")}
           </Text>
         </Paper>

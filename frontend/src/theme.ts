@@ -1,4 +1,4 @@
-import { createTheme, type MantineColorsTuple } from "@mantine/core";
+import { createTheme, Modal, Notification, Pagination, type CSSVariablesResolver, type MantineColorsTuple } from "@mantine/core";
 
 // Brand: a deep red. Errors and destructive actions keep Mantine's brighter `red`, always with an icon and
 // text, so the brand colour is never mistaken for "something went wrong".
@@ -39,4 +39,46 @@ export const theme = createTheme({
   headings: { fontWeight: "650" },
   defaultRadius: "md",
   cursorType: "pointer",
+  components: {
+    Modal: Modal.extend({ defaultProps: { closeButtonProps: { "aria-label": "Close dialog" } } }),
+    // The previous/next arrows are icons: give them names (page numbers already have one).
+    Pagination: Pagination.extend({
+      defaultProps: {
+        getControlProps: (control: "first" | "previous" | "last" | "next") => ({
+          "aria-label": { first: "First page", previous: "Previous page", next: "Next page", last: "Last page" }[control],
+        }),
+      },
+    }),
+    // Toasts: a named close button, and description text at full contrast.
+    Notification: Notification.extend({
+      defaultProps: { closeButtonProps: { "aria-label": "Close notification" } },
+      styles: { description: { color: "var(--mantine-color-text)" } },
+    }),
+  },
+});
+
+// WCAG AA contrast (4.5:1 for text). Mantine's defaults for dimmed text (3.3:1) and for the text of light
+// badges (as low as 1.7:1 for yellow) fail it; these pass, measured on the badge's own tinted background.
+// Found by the axe checks in the end-to-end tests (e2e/).
+export const ACCESSIBLE_TEXT = {
+  gray: "#495057",
+  teal: "#06694b",
+  blue: "#1864ab",
+  violet: "#5f3dc4",
+  orange: "#9a3412",
+  yellow: "#8a5a00",
+  red: "#c92a2a",
+  brand: "#8a1c23",
+} as const;
+
+export const cssVariablesResolver: CSSVariablesResolver = () => ({
+  variables: {},
+  light: {
+    "--mantine-color-dimmed": ACCESSIBLE_TEXT.gray,
+    "--mantine-color-placeholder": "#6b7280", // 4.8:1 on white
+    ...Object.fromEntries(
+      Object.entries(ACCESSIBLE_TEXT).map(([color, text]) => [`--mantine-color-${color}-light-color`, text]),
+    ),
+  },
+  dark: { "--mantine-color-dimmed": "#b8b8b8", "--mantine-color-placeholder": "#9ca3af" }, // 7.8:1 and 6:1
 });
