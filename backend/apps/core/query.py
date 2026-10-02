@@ -7,7 +7,10 @@ unfiltered list with a 200, an answer to a question nobody asked. Found by Schem
 
 from rest_framework import serializers
 
+from apps.core.pagination import DefaultPagination
+
 PAGINATION = frozenset({"page", "page_size"})
+MAX_PAGE_SIZE = DefaultPagination.max_page_size
 MULTI_VALUE = (serializers.MultipleChoiceField, serializers.ListField)
 
 
@@ -32,15 +35,16 @@ class QueryParamsSerializer(serializers.Serializer):
                 errors[name] = ["Give this parameter only once."]
             elif "" in values:
                 errors[name] = ["This field may not be blank."]
-            elif name == "page_size" and is_page_param and not _positive_int(values[0]):
-                errors[name] = ["A whole number of at least 1."]
+            elif name == "page_size" and is_page_param and not _page_size_ok(values[0]):
+                errors[name] = [f"A whole number from 1 to {MAX_PAGE_SIZE}."]
         if errors:
             raise serializers.ValidationError(errors)
         return super().to_internal_value(data)
 
 
-def _positive_int(value: str) -> bool:
-    return value.isascii() and value.isdigit() and int(value) >= 1
+def _page_size_ok(value: str) -> bool:
+    # Refused rather than silently capped: a client asking for 500 should learn it gets at most 100.
+    return value.isascii() and value.isdigit() and 1 <= int(value) <= MAX_PAGE_SIZE
 
 
 class BooleanParam(serializers.ChoiceField):
