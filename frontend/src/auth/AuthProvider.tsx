@@ -6,8 +6,12 @@ import type { LoginResponse, User } from "../api/types";
 
 type Status = "loading" | "signed-out" | "signed-in";
 
+/** Why there is no session: the user signed out, or it expired (or never existed, on first load). */
+type EndReason = "signed-out" | "expired" | null;
+
 interface Auth {
   status: Status;
+  endReason: EndReason;
   user: User | null;
   signIn: (email: string, password: string) => Promise<User>;
   signOut: () => Promise<void>;
@@ -20,8 +24,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<Status>("loading");
   const [user, setUser] = useState<User | null>(null);
+  const [endReason, setEndReason] = useState<EndReason>(null);
 
-  const end = useCallback(() => {
+  const end = useCallback((reason: Exclude<EndReason, null>) => {
+    setEndReason(reason);
     setAccessToken(null);
     queryClient.clear(); // nothing from this user's session stays in memory
     setUser(null);
@@ -30,7 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // On load, the HttpOnly refresh cookie (if still valid) restores the session without asking again.
   useEffect(() => {
-    setSessionExpiredHandler(end);
+    setSessionExpiredHandler(() => end("expired"));
     let active = true;
     void (async () => {
       const restored = (await refreshSession()) && (await api<User>("/api/auth/me/").catch(() => null));
@@ -54,6 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       anonymous: true,
     });
     setAccessToken(session.access);
+    setEndReason(null);
     setUser(session.user);
     setStatus("signed-in");
     return session.user;
@@ -62,17 +69,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     // The refresh cookie identifies the session; the server ends it and clears the cookie.
     await api("/api/auth/logout/", { method: "POST", anonymous: true }).catch(() => undefined);
-    end();
+    end("signed-out");
   }, [end]);
 
   const signOutEverywhere = useCallback(async () => {
     await api("/api/auth/logout-all/", { method: "POST" }).catch(() => undefined);
-    end();
+    end("signed-out");
   }, [end]);
 
   const value = useMemo(
-    () => ({ status, user, signIn, signOut, signOutEverywhere }),
-    [status, user, signIn, signOut, signOutEverywhere],
+    () => ({ status, endReason, user, signIn, signOut, signOutEverywhere }),
+    [status, endReason, user, signIn, signOut, signOutEverywhere],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
