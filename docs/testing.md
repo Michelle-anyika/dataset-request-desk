@@ -19,8 +19,8 @@ defect, vulnerability or performance regression is found on a pull request or on
 | Code quality | Duplication, complexity, code smells, coverage on new code | SonarCloud quality gate | every PR | ✅ |
 | End-to-end | Broken user journeys in a real browser: submit → start → assign → deliver → notify → accept, imports, analytics, accounts, role boundaries | Playwright against the compose stack | every PR | ✅ |
 | Accessibility | Screens that can't be used with assistive technology (no serious or critical WCAG 2.1 AA violation) | axe on every screen the journeys visit | every PR | ✅ |
-| Dynamic security | Missing headers, insecure cookies, common web vulnerabilities in the running app | OWASP ZAP baseline | merge to `develop`, nightly | #47 |
-| Load | Slow endpoints or errors under concurrent use | k6: 10,000 requests from 200 users ([results](performance.md)) | on demand; nightly: #47 | ✅ |
+| Dynamic security | Missing headers, insecure cookies, common web vulnerabilities in the running app | OWASP ZAP baseline (accepted findings explained in [`.zap/rules.tsv`](../.zap/rules.tsv)) | merge to `develop`, nightly | ✅ |
+| Load | Slow endpoints or errors under concurrent use | k6: 10,000 requests from 200 users ([results](performance.md)) | merge to `develop`, nightly, on demand | ✅ |
 
 ## Gates
 
