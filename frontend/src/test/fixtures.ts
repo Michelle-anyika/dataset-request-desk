@@ -1,6 +1,6 @@
 import { http, HttpResponse } from "msw";
 
-import type { User } from "../api/types";
+import type { DatasetRequest, User } from "../api/types";
 
 export const client: User = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -29,3 +29,23 @@ export const sessionFor = (user: User) => [
   http.post("/api/auth/refresh/", () => HttpResponse.json({ access: `access-for-${user.role}` })),
   http.get("/api/auth/me/", () => HttpResponse.json(user)),
 ];
+
+export function makeRequest(overrides: Partial<DatasetRequest> = {}): DatasetRequest {
+  return {
+    id: "aaaaaaaa-0000-4000-8000-000000000001",
+    client: { id: client.id, full_name: client.full_name, organisation: client.organisation },
+    task_name: "pick cup",
+    episodes_requested: 20,
+    assigned_count: 0,
+    deadline: "2026-12-01",
+    notes: "",
+    status: "submitted",
+    status_changed_at: "2026-10-01T09:00:00Z",
+    created_at: "2026-10-01T09:00:00Z",
+    ...overrides,
+  };
+}
+
+export function page<T>(results: T[], count = results.length) {
+  return { count, next: null, previous: null, results };
+}

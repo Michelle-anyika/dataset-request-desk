@@ -3,14 +3,20 @@ import { Notifications } from "@mantine/notifications";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 
+import { ApiError } from "./api/client";
 import { theme } from "./theme";
+
+/** A 4xx won't succeed on a retry; only network blips and 5xx are worth one more try. */
+export function shouldRetry(failureCount: number, error: unknown) {
+  if (error instanceof ApiError && error.status < 500) return false;
+  return failureCount < 1;
+}
 
 export function createQueryClient() {
   return new QueryClient({
     defaultOptions: {
-      // A 4xx will not succeed on retry; only network blips and 5xx are worth one more try.
-      queries: { retry: 1, staleTime: 30_000, refetchOnWindowFocus: true },
-      mutations: { retry: false },
+      queries: { retry: shouldRetry, staleTime: 30_000, refetchOnWindowFocus: true },
+      mutations: { retry: false }, // writes are retried by the user, with the same idempotency key
     },
   });
 }

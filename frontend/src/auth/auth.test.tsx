@@ -5,7 +5,10 @@ import { http, HttpResponse } from "msw";
 import { App } from "../App";
 import { renderAt } from "../test/render";
 import { server } from "../test/server";
-import { admin, apiError, client, noSession, operator, sessionFor } from "../test/fixtures";
+import { admin, apiError, client, noSession, operator, page, sessionFor } from "../test/fixtures";
+
+// The pages behind sign-in load their data; these tests are about getting there.
+beforeEach(() => server.use(http.get("/api/requests/", () => HttpResponse.json(page([])))));
 
 async function signIn(email: string, password = "a-good-password") {
   const user = userEvent.setup();

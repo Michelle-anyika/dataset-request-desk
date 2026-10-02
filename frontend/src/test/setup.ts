@@ -32,6 +32,10 @@ Object.defineProperty(window, "matchMedia", {
   }),
 });
 window.HTMLElement.prototype.scrollIntoView = () => {};
+// The auto-growing textarea listens for web fonts loading.
+Object.defineProperty(document, "fonts", {
+  value: { addEventListener: () => {}, removeEventListener: () => {}, ready: Promise.resolve() },
+});
 class ResizeObserverStub {
   observe() {}
   unobserve() {}

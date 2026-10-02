@@ -6,6 +6,8 @@ import { AppLayout } from "./layout/AppLayout";
 import { LoginPage } from "./pages/LoginPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { RequestsPage } from "./pages/RequestsPage";
+import { NewRequestPage } from "./requests/NewRequestPage";
+import { RequestDetailPage } from "./requests/RequestDetailPage";
 import { UsersPage } from "./pages/UsersPage";
 
 export function App() {
@@ -22,6 +24,15 @@ export function App() {
         >
           <Route index element={<Navigate to="/requests" replace />} />
           <Route path="/requests" element={<RequestsPage />} />
+          <Route
+            path="/requests/new"
+            element={
+              <RequireAuth roles={["client"]}>
+                <NewRequestPage />
+              </RequireAuth>
+            }
+          />
+          <Route path="/requests/:id" element={<RequestDetailPage />} />
           <Route
             path="/users"
             element={
