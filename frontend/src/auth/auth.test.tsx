@@ -166,4 +166,22 @@ describe("signing out", () => {
     await waitFor(() => expect(logoutAll).toHaveBeenCalledOnce());
     expect(await screen.findByRole("heading", { name: /sign in/i })).toBeInTheDocument();
   });
+
+  test("after signing out, the next person starts on their own home page", async () => {
+    // Not on the page the previous user was on: an admin signing out of /users must not send a client there.
+    server.use(
+      ...sessionFor(admin),
+      http.get("/api/users/", () => HttpResponse.json(page([]))),
+      http.post("/api/auth/logout/", () => new HttpResponse(null, { status: 204 })),
+      http.post("/api/auth/login/", () => HttpResponse.json({ access: "a", user: client })),
+    );
+    renderAt(<App />, "/users");
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: /account menu/i }));
+    await user.click(await screen.findByRole("menuitem", { name: "Sign out" }));
+    await signIn(client.email);
+
+    expect(await screen.findByRole("heading", { name: "My requests" })).toBeInTheDocument();
+  });
 });
