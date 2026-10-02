@@ -5,6 +5,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from apps.accounts.models import Role
+from apps.core.idempotency import idempotent
 from apps.core.openapi import error_response
 from apps.core.permissions import IsClient, IsOperator
 from apps.requests_desk import assignments, services, workflow
@@ -65,6 +66,10 @@ class DatasetRequestViewSet(
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
 
+    @idempotent()
+    def create(self, request, *args, **kwargs):
+        return super().create(request, *args, **kwargs)
+
     def perform_create(self, serializer):
         serializer.instance = services.submit_request(self.request.user, **serializer.validated_data)
 
@@ -77,6 +82,7 @@ class DatasetRequestViewSet(
         description="Move the request through its workflow. Allowed steps depend on status and role.",
     )
     @action(detail=True, methods=["post"], url_path="transitions")
+    @idempotent()
     def transitions(self, request, pk=None):
         dataset_request = self.get_object()  # scoped: another client's request is 404
         serializer = TransitionSerializer(data=request.data)
@@ -110,6 +116,7 @@ class DatasetRequestViewSet(
         description="Assign episodes (operators and admins). All or nothing: any problem assigns none.",
     )
     @action(detail=True, methods=["get", "post"], url_path="assignments")
+    @idempotent("POST")
     def assignments(self, request, pk=None):
         dataset_request = self.get_object()  # scoped: another client's request is 404
         if request.method == "POST":

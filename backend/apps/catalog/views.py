@@ -17,6 +17,7 @@ from apps.catalog.serializers import (
     ImportUploadSerializer,
     IssueFilterSerializer,
 )
+from apps.core.idempotency import idempotent
 from apps.core.permissions import IsOperator
 
 
@@ -48,6 +49,7 @@ class ImportBatchViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, views
     @extend_schema(
         request={"multipart/form-data": ImportUploadSerializer}, responses={201: ImportBatchSerializer}
     )
+    @idempotent()
     def create(self, request):
         upload = ImportUploadSerializer(data=request.data)
         upload.is_valid(raise_exception=True)
