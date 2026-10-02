@@ -1,5 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 
+import { notifications } from "@mantine/notifications";
+
 import { cleanup, configure } from "@testing-library/react";
 
 import { setAccessToken } from "../api/client";
@@ -12,6 +14,7 @@ configure({ asyncUtilTimeout: 3000 });
 beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
 afterEach(() => {
   cleanup();
+  notifications.clean(); // toasts live in a global store: don't let one test's toast reach the next
   server.resetHandlers();
   setAccessToken(null);
 });

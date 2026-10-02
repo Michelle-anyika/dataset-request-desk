@@ -22,12 +22,13 @@ import { useAssignments, useRequest, useRequestEvents } from "../api/requests";
 import type { Assignment, DatasetRequest, RequestEvent } from "../api/types";
 import { useUser } from "../auth/AuthProvider";
 import { EmptyState, LoadError, TableSkeleton } from "../components/states";
-import { daysSince, deadlineHint, formatDate, formatDateTime, formatDuration, plural } from "../format";
+import { clientLabel, daysSince, deadlineHint, formatDate, formatDateTime, formatDuration, plural, progressColor } from "../format";
 import { usePageTitle } from "../usePageTitle";
 import { ClientDecision } from "./ClientDecision";
+import { StaffActions } from "./StaffActions";
 import { STATUS_LABELS, StatusBadge } from "./status";
 
-export function RequestDetailPage({ staffActions }: { staffActions?: (request: DatasetRequest) => ReactNode }) {
+export function RequestDetailPage() {
   const { id = "" } = useParams();
   const user = useUser();
   const request = useRequest(id);
@@ -67,7 +68,7 @@ export function RequestDetailPage({ staffActions }: { staffActions?: (request: D
         </Group>
         <Text c="dimmed" size="sm">
           Submitted {formatDateTime(data.created_at)}
-          {!isClient && ` by ${data.client.full_name}${data.client.organisation ? `, ${data.client.organisation}` : ""}`}
+          {!isClient && ` by ${clientLabel(data.client)}`}
         </Text>
       </Stack>
 
@@ -84,7 +85,7 @@ export function RequestDetailPage({ staffActions }: { staffActions?: (request: D
       )}
 
       {isClient && data.status === "delivered" && <ClientDecision request={data} />}
-      {!isClient && staffActions?.(data)}
+      {!isClient && <StaffActions request={data} />}
 
       <Grid gap="lg">
         <Grid.Col span={{ base: 12, md: 5 }}>
@@ -123,7 +124,15 @@ function Summary({ request }: { request: DatasetRequest }) {
     <SimpleGrid cols={{ base: 1, xs: 3 }}>
       <Stat
         label="Episodes"
-        hint={<Progress value={share} size="sm" mt={6} aria-label={`${Math.round(share)}% of the episodes assigned`} />}
+        hint={
+          <Progress
+            value={share}
+            size="sm"
+            mt={6}
+            color={progressColor(request.assigned_count, request.episodes_requested)}
+            aria-label={`${Math.round(share)}% of the episodes assigned`}
+          />
+        }
       >
         {request.assigned_count.toLocaleString("en-GB")} / {request.episodes_requested.toLocaleString("en-GB")}
       </Stat>
