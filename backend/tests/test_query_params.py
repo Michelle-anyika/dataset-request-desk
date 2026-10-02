@@ -64,6 +64,29 @@ def test_pagination_parameters_are_allowed_on_lists(operator):
     assert operator.get("/api/requests/", {"page": 1, "page_size": 10}).status_code == 200
 
 
+@pytest.mark.parametrize("value", ["null", "0", "-1", "ten"])
+def test_a_page_size_must_be_a_positive_whole_number(operator, value):
+    response = operator.get("/api/requests/", {"page_size": value})
+
+    assert details(response) == {"page_size": ["A whole number of at least 1."]}
+
+
+def test_pagination_parameters_are_given_once(operator):
+    assert details(operator.get("/api/requests/?page_size=5&page_size=6")) == {
+        "page_size": ["Give this parameter only once."]
+    }
+
+
+def test_lists_without_filters_refuse_unknown_parameters_too(operator, make_user):
+    client = make_user(email="client@example.com")
+    deadline = timezone.localdate() + timedelta(days=9)
+    request = submit_request(client, task_name="pick cup", episodes_requested=1, deadline=deadline)
+
+    response = operator.get(f"/api/requests/{request.id}/events/", {"stauts": "x"})
+
+    assert details(response) == {"stauts": ["Unknown query parameter."]}
+
+
 def test_pagination_parameters_are_refused_where_nothing_is_paginated(operator):
     assert details(operator.get("/api/analytics/", {"page": 2})) == {"page": ["Unknown query parameter."]}
 
