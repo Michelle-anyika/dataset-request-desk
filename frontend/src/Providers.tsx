@@ -23,10 +23,10 @@ export function createQueryClient() {
 
 /** Everything the app needs around it: theme, notifications and the server-state cache. The router is
  * added by the caller: the browser's history in the app, an in-memory one in tests. */
-export function Providers({ children }: { children: ReactNode }) {
+export function Providers({ children, env }: { children: ReactNode; env?: "test" }) {
   const [queryClient] = useState(createQueryClient);
   return (
-    <MantineProvider theme={theme} defaultColorScheme="auto">
+    <MantineProvider theme={theme} defaultColorScheme="auto" env={env}>
       <Notifications position="top-right" />
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     </MantineProvider>
