@@ -17,6 +17,7 @@ import type { ReactNode } from "react";
 import { Link, NavLink as RouterNavLink, Outlet } from "react-router";
 
 import { useAuth, useUser } from "../auth/AuthProvider";
+import { PageErrorBoundary } from "../components/ErrorBoundary";
 import { navFor } from "../navigation";
 import { BrandMark } from "./BrandMark";
 
@@ -79,7 +80,9 @@ export function AppLayout({ headerExtras }: { headerExtras?: ReactNode }) {
       </AppShell.Navbar>
 
       <AppShell.Main>
-        <Outlet />
+        <PageErrorBoundary>
+          <Outlet />
+        </PageErrorBoundary>
       </AppShell.Main>
     </AppShell>
   );
