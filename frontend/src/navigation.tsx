@@ -1,4 +1,4 @@
-import { IconInbox, IconListDetails, IconUsers } from "@tabler/icons-react";
+import { IconInbox, IconListDetails, IconSquarePlus, IconUsers } from "@tabler/icons-react";
 import type { ComponentType } from "react";
 
 import type { Role } from "./api/types";
@@ -15,6 +15,7 @@ const STAFF: Role[] = ["operator", "admin"];
 /** The main navigation. Each role sees only its own pages; the API enforces the same rules. */
 export const NAV_ITEMS: NavItem[] = [
   { label: "My requests", to: "/requests", icon: IconInbox, roles: ["client"] },
+  { label: "New request", to: "/requests/new", icon: IconSquarePlus, roles: ["client"] },
   { label: "Request queue", to: "/requests", icon: IconListDetails, roles: STAFF },
   { label: "Users", to: "/users", icon: IconUsers, roles: ["admin"] },
 ];

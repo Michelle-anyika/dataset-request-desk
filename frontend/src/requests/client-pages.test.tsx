@@ -20,7 +20,10 @@ describe("my requests", () => {
   test("lists the client's requests with their status, and flags deliveries waiting for them", async () => {
     server.use(
       ...sessionFor(client),
-      http.get("/api/requests/", () => HttpResponse.json(page([delivered, submitted]))),
+      http.get("/api/requests/", ({ request }) => {
+        const status = new URL(request.url).searchParams.get("status");
+        return HttpResponse.json(page([delivered, submitted].filter((r) => !status || r.status === status)));
+      }),
     );
 
     renderAt(<App />, "/requests");
