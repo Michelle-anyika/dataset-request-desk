@@ -13,6 +13,8 @@ export type NewDatasetRequest = Schemas["DatasetRequestRequest"];
 export type RequestStatus = Schemas["RequestStatus"];
 export type RequestEvent = Schemas["RequestEvent"];
 export type AssignedEpisode = Schemas["AssignedEpisode"];
+export type Episode = Schemas["Episode"];
+export type Quality = Episode["quality"];
 /** Staff also see who assigned and released; clients get only the episode and when it was assigned. */
 export type Assignment = Pick<Schemas["AssignmentHistory"], "episode" | "assigned_at"> &
   Partial<Omit<Schemas["AssignmentHistory"], "episode" | "assigned_at">>;
