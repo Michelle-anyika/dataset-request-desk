@@ -16,9 +16,11 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
+    include: ["src/**/*.test.{ts,tsx}"], // e2e/ is Playwright's (npm run e2e)
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
     css: false,
+    testTimeout: 15_000, // coverage instrumentation on a shared CI runner is several times slower
     coverage: {
       provider: "v8",
       include: ["src/**/*.{ts,tsx}"],

@@ -3,24 +3,30 @@ import { Notifications } from "@mantine/notifications";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 
-import { theme } from "./theme";
+import { ApiError } from "./api/client";
+import { cssVariablesResolver, theme } from "./theme";
+
+/** A 4xx won't succeed on a retry; only network blips and 5xx are worth one more try. */
+export function shouldRetry(failureCount: number, error: unknown) {
+  if (error instanceof ApiError && error.status < 500) return false;
+  return failureCount < 1;
+}
 
 export function createQueryClient() {
   return new QueryClient({
     defaultOptions: {
-      // A 4xx will not succeed on retry; only network blips and 5xx are worth one more try.
-      queries: { retry: 1, staleTime: 30_000, refetchOnWindowFocus: true },
-      mutations: { retry: false },
+      queries: { retry: shouldRetry, staleTime: 30_000, refetchOnWindowFocus: true },
+      mutations: { retry: false }, // writes are retried by the user, with the same idempotency key
     },
   });
 }
 
 /** Everything the app needs around it: theme, notifications and the server-state cache. The router is
  * added by the caller: the browser's history in the app, an in-memory one in tests. */
-export function Providers({ children }: { children: ReactNode }) {
+export function Providers({ children, env }: { children: ReactNode; env?: "test" }) {
   const [queryClient] = useState(createQueryClient);
   return (
-    <MantineProvider theme={theme} defaultColorScheme="auto">
+    <MantineProvider theme={theme} cssVariablesResolver={cssVariablesResolver} defaultColorScheme="auto" env={env}>
       <Notifications position="top-right" />
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     </MantineProvider>

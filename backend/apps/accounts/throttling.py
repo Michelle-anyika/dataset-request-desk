@@ -17,8 +17,7 @@ FAILURE_WINDOW_SECONDS = 15 * 60
 class LoginRateThrottle(SimpleRateThrottle):
     """Every login attempt from one IP address, successful or not: slows down spraying many accounts."""
 
-    scope = "login"
-    rate = "10/min"
+    scope = "login"  # rate: REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]["login"], 10/min unless configured
 
     def get_cache_key(self, request, view):
         return self.cache_format % {"scope": self.scope, "ident": self.get_ident(request)}

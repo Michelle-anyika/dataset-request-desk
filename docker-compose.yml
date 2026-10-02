@@ -34,6 +34,7 @@ services:
       HTTPS_ONLY: ${HTTPS_ONLY:-false}  # plain HTTP locally, even with DJANGO_DEBUG=false (production-like runs)
       THROTTLE_ANON_RATE: ${THROTTLE_ANON_RATE:-60/min}  # raise only for load and fuzz testing
       THROTTLE_USER_RATE: ${THROTTLE_USER_RATE:-3000/hour}  # raise only for load and fuzz testing
+      THROTTLE_LOGIN_RATE: ${THROTTLE_LOGIN_RATE:-10/min}  # raise only for end-to-end tests
       # The app runs as a non-root user that cannot write to /app (intended): pytest's cache is off here, and
       # coverage data goes to /tmp.
       PYTEST_ADDOPTS: -p no:cacheprovider
