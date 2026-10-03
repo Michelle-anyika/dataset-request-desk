@@ -7,7 +7,7 @@ from apps.catalog.models import Episode, ImportBatch, ImportRowIssue, IssueSever
 from apps.catalog.normalise import normalise_task_name
 from apps.core.query import QueryParamsSerializer
 
-ALLOWED_EXTENSIONS = {".csv"}
+ALLOWED_EXTENSIONS = {".csv", ".xlsx"}
 
 
 class ImportUploadSerializer(serializers.Serializer):
@@ -15,7 +15,7 @@ class ImportUploadSerializer(serializers.Serializer):
 
     def validate_file(self, upload):
         if Path(upload.name).suffix.lower() not in ALLOWED_EXTENSIONS:
-            raise serializers.ValidationError("Upload the export as a .csv file.")
+            raise serializers.ValidationError("Upload the export as a .csv or .xlsx file.")
         if upload.size > settings.IMPORT_MAX_UPLOAD_BYTES:
             limit_mb = settings.IMPORT_MAX_UPLOAD_BYTES / (1024 * 1024)
             raise serializers.ValidationError(f"The file is larger than {limit_mb:g} MB.")

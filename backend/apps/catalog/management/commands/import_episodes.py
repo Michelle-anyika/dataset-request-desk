@@ -7,24 +7,20 @@ from django.core.management.base import BaseCommand, CommandError
 from apps.accounts.models import Role
 from apps.catalog.import_service import ImportFailed, import_episodes
 from apps.catalog.models import ImportBatch, ImportStatus, IssueSeverity
-
-
-def _open_export(path: Path):
-    # Same decoding as the upload endpoint: drop a byte-order mark, let the csv module see CRLF.
-    return path.open(encoding="utf-8-sig", newline="")
+from apps.catalog.spreadsheet import export_lines
 
 
 def _digest(path: Path) -> str:
     """SHA-256 computed exactly as the import service computes it, over the decoded lines."""
     hasher = hashlib.sha256()
-    with _open_export(path) as export:
-        for line in export:
+    with path.open("rb") as file:
+        for line in export_lines(file, path.name):
             hasher.update(line.encode())
     return hasher.hexdigest()
 
 
 class Command(BaseCommand):
-    help = "Import episodes from a recording-system CSV export. Safe to run repeatedly on the same file."
+    help = "Import episodes from a recording-system export (.csv or .xlsx). Safe to re-run on the same file."
 
     def add_arguments(self, parser):
         parser.add_argument("path", type=Path)
@@ -47,8 +43,8 @@ class Command(BaseCommand):
                 if earlier.exists():
                     self.stdout.write(f"{path.name} was already imported (import #{earlier.first().pk}).")
                     return
-            with _open_export(path) as export:
-                batch = import_episodes(export, file_name=path.name, uploaded_by=user)
+            with path.open("rb") as file:
+                batch = import_episodes(export_lines(file, path.name), file_name=path.name, uploaded_by=user)
         except (OSError, ImportFailed) as exc:
             raise CommandError(str(exc)) from exc
 

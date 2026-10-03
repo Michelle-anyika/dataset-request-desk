@@ -1,5 +1,5 @@
 import { Alert, Anchor, Badge, Button, FileInput, Group, Pagination, Paper, Stack, Table, Text, Title } from "@mantine/core";
-import { IconAlertCircle, IconFileTypeCsv, IconUpload } from "@tabler/icons-react";
+import { IconAlertCircle, IconFileSpreadsheet, IconUpload } from "@tabler/icons-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 
@@ -14,8 +14,8 @@ import { ImportStatusBadge, ResultSummary } from "./report";
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024; // as the API (IMPORT_MAX_UPLOAD_BYTES)
 
 export function checkUpload(file: File | null): string | null {
-  if (!file) return "Choose the CSV export to import.";
-  if (!file.name.toLowerCase().endsWith(".csv")) return "Choose the CSV export (a .csv file).";
+  if (!file) return "Choose the export to import.";
+  if (!/\.(csv|xlsx)$/i.test(file.name)) return "Choose the export as a .csv or .xlsx file.";
   if (file.size > MAX_UPLOAD_BYTES) return "The file is larger than 20 MB. Split the export and import each part.";
   return null;
 }
@@ -29,7 +29,7 @@ export function ImportsPage() {
     <>
       <PageHeader title="Episode imports">
         <Text c="dimmed">
-          Upload the recording system's CSV export. Messy rows are fixed or skipped, and every one is reported.
+          Upload the recording system's export, as CSV or Excel. Messy rows are fixed or skipped, and every one is reported.
           Importing the same file again changes nothing.
         </Text>
       </PageHeader>
@@ -106,11 +106,11 @@ function UploadCard() {
         )}
         <Group align="flex-end" gap="sm">
           <FileInput
-            label="CSV export"
-            description="Up to 20 MB, UTF-8."
-            placeholder="Choose a .csv file"
-            accept=".csv,text/csv"
-            leftSection={<IconFileTypeCsv size={18} />}
+            label="Export file"
+            description="CSV (UTF-8) or Excel (.xlsx, first sheet), up to 20 MB."
+            placeholder="Choose a .csv or .xlsx file"
+            accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            leftSection={<IconFileSpreadsheet size={18} />}
             clearable
             value={file}
             error={fieldError}

@@ -162,6 +162,10 @@ SPECTACULAR_SETTINGS = {
 
 # Episode import uploads (docs/security.md section 2): bounded size, CSV only.
 IMPORT_MAX_UPLOAD_BYTES = int(env_str("IMPORT_MAX_UPLOAD_BYTES", default=str(20 * 1024 * 1024)))
+# A .xlsx is a zip: refuse one that would unpack to more than this, however small the upload.
+IMPORT_MAX_XLSX_UNPACKED_BYTES = int(
+    env_str("IMPORT_MAX_XLSX_UNPACKED_BYTES", default=str(200 * 1024 * 1024))
+)
 
 # Transport security (docs/security.md §5). Secure by default: on unless DEBUG.
 HTTPS_ONLY = env_bool("HTTPS_ONLY", default=not DEBUG)
