@@ -15,6 +15,7 @@ import { NotFoundPage } from "./pages/NotFoundPage";
 import { RequestsPage } from "./pages/RequestsPage";
 import { NewRequestPage } from "./requests/NewRequestPage";
 import { RequestDetailPage } from "./requests/RequestDetailPage";
+import { RequestImportPage } from "./requests/RequestImportPage";
 import { UsersPage } from "./users/UsersPage";
 
 // The charts library is large: load it only when someone opens analytics.
@@ -74,6 +75,14 @@ export function App() {
                 <Suspense fallback={<FullPageLoader />}>
                   <AnalyticsPage />
                 </Suspense>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/request-imports"
+            element={
+              <RequireAuth roles={["admin"]}>
+                <RequestImportPage />
               </RequireAuth>
             }
           />

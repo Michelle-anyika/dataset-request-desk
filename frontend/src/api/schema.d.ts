@@ -241,6 +241,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/request-imports/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Import the file: create the rows that pass, report the rest. Re-running creates nothing. */
+        post: operations["request_imports_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/request-imports/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description What importing the file would do, row by row. Saves nothing. */
+        post: operations["request_imports_preview_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/requests/": {
         parameters: {
             query?: never;
@@ -386,6 +420,13 @@ export interface components {
             /** @description Bearer token, valid for 10 minutes. Keep it in memory only. */
             access: string;
         };
+        /**
+         * @description * `create` - create
+         *     * `unchanged` - unchanged
+         *     * `skip` - skip
+         * @enum {string}
+         */
+        ActionEnum: "create" | "unchanged" | "skip";
         Analytics: {
             range: components["schemas"]["AnalyticsRange"];
             episodes_per_day: components["schemas"]["DayCount"][];
@@ -748,6 +789,12 @@ export interface components {
             readonly changed_at: string;
             readonly comment: string;
         };
+        RequestImportReport: {
+            create: number;
+            unchanged: number;
+            skip: number;
+            rows: components["schemas"]["RowResult"][];
+        };
         /**
          * @description * `submitted` - Submitted
          *     * `in_progress` - In progress
@@ -764,6 +811,28 @@ export interface components {
          * @enum {string}
          */
         RoleEnum: "client" | "operator" | "admin";
+        RowResult: {
+            /** @description Line in the file (the header is line 1). */
+            row: number;
+            /** @description The spreadsheet's reference for this request. */
+            reference: string;
+            /**
+             * @description create: new (or will be, in a preview); unchanged: imported before; skip: see reason.
+             *
+             *     * `create` - create
+             *     * `unchanged` - unchanged
+             *     * `skip` - skip
+             */
+            action: components["schemas"]["ActionEnum"];
+            /** @description Why the row is skipped; empty otherwise. */
+            reason_code: string;
+            /** @description The reason, readable. */
+            message: string;
+            client_email: string;
+            /** @description As it will be stored (normalised). */
+            task_name: string;
+            status: string;
+        };
         /**
          * @description * `skipped` - Skipped
          *     * `fixed` - Fixed
@@ -1671,6 +1740,145 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UnreadSummary"];
+                };
+            };
+            /** @description Not signed in, or the access token is invalid or expired. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Signed in, but your role may not do this. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests; retry after the number of seconds in `Retry-After`. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    request_imports_create: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional, any unique string (e.g. a UUID). A retry with the same key and body replays the first response instead of doing the work again. Kept for 24 hours. */
+                "Idempotency-Key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["ImportUploadRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestImportReport"];
+                };
+            };
+            /** @description Invalid input; `details` lists the problems per field. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not signed in, or the access token is invalid or expired. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Signed in, but your role may not do this. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description A request with this Idempotency-Key is still being processed. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description This Idempotency-Key was already used for a different request. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests; retry after the number of seconds in `Retry-After`. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    request_imports_preview_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["ImportUploadRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestImportReport"];
+                };
+            };
+            /** @description Invalid input; `details` lists the problems per field. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Not signed in, or the access token is invalid or expired. */
