@@ -8,7 +8,8 @@ built and deployed.
 Diagrams are written in [Mermaid](https://mermaid.js.org) so they are versioned and reviewed with
 the code. The data model is in [erd.dbml](erd.dbml) (render at [dbdiagram.io](https://dbdiagram.io)).
 The reasoning behind each choice is in the decision log in [PLAN.md](../PLAN.md#14-decision-log-for-notesmd), and
-the threat model and security controls are in [security.md](security.md).
+the threat model and security controls are in [security.md](security.md). A printable version of this document is in
+[architecture.pdf](architecture.pdf), exported from this file; this Markdown file is the one to edit.
 
 ## 1. System context
 
@@ -51,9 +52,9 @@ flowchart LR
 
     subgraph desk["Dataset Request Desk"]
         direction LR
-        web["<b>Web app</b><br/><i>React, TypeScript, Vite</i><br/>Role-based screens,<br/>notification bell"]
+        web["<b>Web app</b><br/><i>React, TypeScript, Vite</i><br/>Landing page, role-based<br/>screens, notification bell"]
         api["<b>API</b><br/><i>Django REST Framework, gunicorn</i><br/>Authentication, authorization,<br/>domain rules, import, analytics"]
-        scheduler["<b>Scheduler</b><br/><i>manage.py send_reminders</i><br/>Hourly reminders and<br/>deadline warnings"]
+        scheduler["<b>Scheduler</b><br/><i>manage.py send_reminders</i><br/>Every minute: email outbox,<br/>reminders, deadline warnings"]
         cli["<b>Management commands</b><br/><i>manage.py</i><br/>seed, import_episodes"]
         db[("<b>Database</b><br/><i>PostgreSQL 16</i><br/>Users, episodes, requests,<br/>events, assignments,<br/>notifications, imports")]
     end
@@ -68,8 +69,7 @@ flowchart LR
     api -- "SQL" --> db
     scheduler -- "SQL" --> db
     cli -- "SQL" --> db
-    api -- "delivery and<br/>rejection emails" --> email
-    scheduler -- "reminder emails" --> email
+    scheduler -- "every email,<br/>from the outbox" --> email
     api -. "unhandled errors" .-> sentry
     api -. "structured logs" .-> logs
     uptime -. "GET /health" .-> api
@@ -86,8 +86,8 @@ flowchart LR
 | Container | Responsibility | Holds state? |
 |---|---|---|
 | Web app | Screens per role; talks only to the API | No: only UI state and the session tokens |
-| API | Every rule is enforced here: authentication, role and ownership checks, workflow, assignment rules | No: stateless, so it scales horizontally |
-| Scheduler | Runs the idempotent `send_reminders` command every hour: delivery reminders, escalations, deadline warnings, email retries | No |
+| API | Every rule is enforced here: authentication, role and ownership checks, workflow, assignment rules. Emails are only recorded (the outbox), so a request never waits for a mail server | No: stateless, so it scales horizontally |
+| Scheduler | Runs the idempotent `send_reminders` command every minute: sends the email outbox (retrying failures), delivery reminders, escalations, deadline warnings | No |
 | Management commands | Seeding and CLI import; reuse the same domain services as the API | No |
 | Database | Single source of truth; constraints back up the rules in code | **Yes** |
 
@@ -99,7 +99,7 @@ management commands share exactly the same logic. The database is the last line 
 ```mermaid
 flowchart TB
     http(["HTTP request"]) --> mw
-    mw["<b>Middleware</b><br/>request ID · JSON access log · security headers · CORS"]
+    mw["<b>Middleware</b><br/>request ID · JSON access log · security headers"]
     mw --> authn["<b>Authentication</b><br/>SimpleJWT · rejects inactive users and revoked sessions"]
     authn --> perms["<b>Permission classes</b><br/>role checks · ownership checks"]
     perms --> views["<b>Views and serializers</b><br/>input validation · response shape · pagination"]
@@ -254,6 +254,7 @@ Nobody watches logs all day, so the system pushes problems to the people who can
 | A deadline is 2 days away and nothing is delivered | Operators | In-app deadline warning, once per request |
 | The API throws an unhandled error | Development team | Sentry email with stack trace, request and user id |
 | The API or database is down | Development team | Uptime monitor calls `/health` and alerts on failure |
+| A security scan or load test fails on `develop` | Development team | The Nightly workflow (OWASP ZAP, k6) fails and GitHub emails the repository's owners; fixed before the next release |
 | Investigating any of the above | Development team | JSON logs, found by the `X-Request-ID` shown to the user |
 
 ## 8. Deployment
@@ -306,11 +307,13 @@ flowchart LR
         direction TB
         naming["Branch naming"]
         commits["Conventional commits"]
-        ci["CI: hygiene · backend tests<br/>frontend build · compose smoke test"]
+        ci["CI OK: hygiene · dependency audit<br/>backend tests, 95% coverage gate<br/>frontend lint, tests, build<br/>compose smoke test · API fuzzing<br/>end-to-end journeys with axe<br/>SonarCloud quality gate"]
+        codeql["CodeQL: Python, workflows,<br/>JavaScript/TypeScript"]
     end
 
     pr --> checks --> develop["Merge into develop"]
     develop --> devdeploy["Deploy to dev"]
+    develop --> slow["Slow checks on develop and nightly<br/>OWASP ZAP baseline · k6 load test"]
     develop --> release["Release PR<br/>develop → main"]
     release --> approve(["Manual approval<br/>production environment"])
     approve --> proddeploy["Deploy to production"]
@@ -320,7 +323,7 @@ flowchart LR
     classDef deploy fill:#d4edda,stroke:#2e7d32,color:#000
     classDef gate fill:#fff3cd,stroke:#b58900,color:#000
     class branch,pr,develop,release step
-    class naming,commits,ci check
+    class naming,commits,ci,codeql,slow check
     class devdeploy,proddeploy deploy
     class approve gate
     style checks fill:transparent,stroke:#5d82a8,stroke-width:1px,stroke-dasharray:5 4
