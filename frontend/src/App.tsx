@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Navigate, Route, Routes } from "react-router";
+import { Route, Routes } from "react-router";
 
 import { AuthProvider } from "./auth/AuthProvider";
 import { FullPageLoader, RequireAuth } from "./auth/RequireAuth";
@@ -9,6 +9,7 @@ import { ImportsPage } from "./imports/ImportsPage";
 import { AppLayout } from "./layout/AppLayout";
 import { NotificationBell } from "./notifications/NotificationBell";
 import { NotificationsPage } from "./notifications/NotificationsPage";
+import { LandingPage } from "./pages/LandingPage";
 import { LoginPage } from "./pages/LoginPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { RequestsPage } from "./pages/RequestsPage";
@@ -23,6 +24,7 @@ export function App() {
   return (
     <AuthProvider>
       <Routes>
+        <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route
           element={
@@ -31,7 +33,6 @@ export function App() {
             </RequireAuth>
           }
         >
-          <Route index element={<Navigate to="/requests" replace />} />
           <Route path="/requests" element={<RequestsPage />} />
           <Route
             path="/requests/new"
