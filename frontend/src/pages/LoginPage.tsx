@@ -1,8 +1,8 @@
-import { Alert, Box, Button, Center, Paper, PasswordInput, Stack, Text, TextInput, Title } from "@mantine/core";
+import { Alert, Anchor, Box, Button, Center, Paper, PasswordInput, Stack, Text, TextInput, Title } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { IconAlertCircle } from "@tabler/icons-react";
 import { useState } from "react";
-import { Navigate, useLocation, useNavigate, type Location } from "react-router";
+import { Link, Navigate, useLocation, useNavigate, type Location } from "react-router";
 
 import { describeError } from "../api/errors";
 import { useAuth } from "../auth/AuthProvider";
@@ -58,12 +58,14 @@ export function LoginPage() {
     <Center mih="100vh" p="md" bg="light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-8))">
       <Box w="100%" maw={400}>
         <Stack align="center" gap={6} mb="lg">
-          <BrandMark size={44} />
+          <Anchor component={Link} to="/" aria-label="Dataset Request Desk, about the platform">
+            <BrandMark size={44} />
+          </Anchor>
           <Title order={1} fz="h2" ta="center">
             Sign in
           </Title>
           <Text c="dimmed" size="sm" ta="center">
-            Dataset Request Desk
+            Dataset Request Desk: robot teleoperation dataset requests
           </Text>
         </Stack>
         <Paper withBorder shadow="sm" radius="md" p="xl">
@@ -94,6 +96,12 @@ export function LoginPage() {
             </Stack>
           </form>
         </Paper>
+        <Text size="sm" c="dimmed" ta="center" mt="md">
+          No account? Your administrator creates accounts.{" "}
+          <Anchor component={Link} to="/" size="sm" underline="always" c="light-dark(var(--mantine-color-brand-8), var(--mantine-color-brand-3))">
+            About the platform
+          </Anchor>
+        </Text>
       </Box>
     </Center>
   );
