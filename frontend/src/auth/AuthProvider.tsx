@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { api, refreshSession, setAccessToken, setSessionExpiredHandler } from "../api/client";
 import type { LoginResponse, User } from "../api/types";
@@ -25,8 +25,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<Status>("loading");
   const [user, setUser] = useState<User | null>(null);
   const [endReason, setEndReason] = useState<EndReason>(null);
+  // Set once a sign-in or sign-out decides the session, so the start-up check can't overrule it.
+  const decided = useRef(false);
 
   const end = useCallback((reason: Exclude<EndReason, null>) => {
+    decided.current = true;
     setEndReason(reason);
     setAccessToken(null);
     queryClient.clear(); // nothing from this user's session stays in memory
@@ -40,7 +43,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let active = true;
     void (async () => {
       const restored = (await refreshSession()) && (await api<User>("/api/auth/me/").catch(() => null));
-      if (!active) return;
+      // Only while nothing else has decided: someone who signed in before this answer came back (a fast typist,
+      // a password manager) must not be signed out by a "no session" that describes the moment before.
+      if (!active || decided.current) return;
       if (restored) {
         setUser(restored);
         setStatus("signed-in");
@@ -59,6 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       body: { email, password },
       anonymous: true,
     });
+    decided.current = true;
     setAccessToken(session.access);
     setEndReason(null);
     setUser(session.user);

@@ -36,6 +36,28 @@ describe("signing in", () => {
     expect(await screen.findByRole("heading", { name: "My requests" })).toBeInTheDocument();
   });
 
+  test("a slow check for an earlier session can't undo a sign-in that finished first", async () => {
+    let answerSessionCheck: () => void = () => undefined;
+    server.use(
+      // The page's first question, "is there still a session?", answers only after the user has signed in.
+      http.post("/api/auth/refresh/", async () => {
+        await new Promise<void>((resolve) => (answerSessionCheck = resolve));
+        return apiError(401, "not_authenticated", "No active session.");
+      }),
+      http.post("/api/auth/login/", () => HttpResponse.json({ access: "a", user: client })),
+    );
+    renderAt(<App />, "/login");
+
+    await signIn(client.email);
+    expect(await screen.findByRole("heading", { name: "My requests" })).toBeInTheDocument();
+    answerSessionCheck();
+
+    // Still signed in: the late "no session" answer is about the time before signing in.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(screen.getByRole("heading", { name: "My requests" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Sign in" })).not.toBeInTheDocument();
+  });
+
   test("operators and admins land on the request queue", async () => {
     server.use(noSession(), http.post("/api/auth/login/", () => HttpResponse.json({ access: "a", user: operator })));
     renderAt(<App />, "/login");
