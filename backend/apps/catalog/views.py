@@ -1,5 +1,3 @@
-import io
-
 from django.db.models import Exists, OuterRef, Subquery
 from drf_spectacular.utils import extend_schema
 from rest_framework import exceptions, mixins, status, viewsets
@@ -17,6 +15,7 @@ from apps.catalog.serializers import (
     ImportUploadSerializer,
     IssueFilterSerializer,
 )
+from apps.catalog.spreadsheet import export_lines
 from apps.core.idempotency import idempotent
 from apps.core.permissions import IsOperator
 from apps.core.query import QueryParamsSerializer
@@ -57,10 +56,10 @@ class ImportBatchViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, views
         upload = ImportUploadSerializer(data=request.data)
         upload.is_valid(raise_exception=True)
         file = upload.validated_data["file"]
-        # utf-8-sig drops a byte-order mark if the export has one; newline="" lets the csv module see CRLF.
-        lines = io.TextIOWrapper(file.file, encoding="utf-8-sig", newline="")
         try:
-            batch = import_episodes(lines, file_name=file.name, uploaded_by=request.user)
+            batch = import_episodes(
+                export_lines(file.file, file.name), file_name=file.name, uploaded_by=request.user
+            )
         except ImportFailed as exc:
             raise InvalidImportFile(str(exc)) from exc
         report = self.get_queryset().get(pk=batch.pk)
