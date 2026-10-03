@@ -5,7 +5,7 @@ import { useState } from "react";
 
 import { describeError } from "../api/errors";
 import { newIdempotencyKey } from "../api/idempotency";
-import { useTransition } from "../api/requests";
+import { isConflict, useTransition } from "../api/requests";
 import type { DatasetRequest } from "../api/types";
 import { daysSince, plural } from "../format";
 
@@ -62,6 +62,12 @@ function DecisionModal({ request, decision, onClose }: { request: DatasetRequest
       });
       onClose();
     } catch (failure) {
+      if (isConflict(failure)) {
+        // Decided elsewhere meanwhile (another tab or colleague): this dialog no longer applies.
+        notifications.show({ color: "orange", title: "This delivery has changed", message: `${describeError(failure)} The page now shows its current status.` });
+        onClose();
+        return;
+      }
       setError(describeError(failure));
     }
   };

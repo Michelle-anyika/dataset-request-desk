@@ -1,6 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { api } from "./client";
+import { api, ApiError } from "./client";
 import type { Assignment, DatasetRequest, NewDatasetRequest, Page, RequestEvent, RequestStatus } from "./types";
 
 export interface RequestFilters {
@@ -79,5 +79,14 @@ export function useTransition(id: string) {
       void queryClient.invalidateQueries({ queryKey: requestKeys.all });
       void queryClient.invalidateQueries({ queryKey: ["notifications"] });
     },
+    // A conflict means someone else changed the request since this page loaded: show what it is now.
+    onError: (error) => {
+      if (isConflict(error)) void queryClient.invalidateQueries({ queryKey: requestKeys.all });
+    },
   });
+}
+
+/** The API's answer when the data changed under you: another person moved, assigned or released it first. */
+export function isConflict(error: unknown): error is ApiError {
+  return error instanceof ApiError && error.status === 409;
 }

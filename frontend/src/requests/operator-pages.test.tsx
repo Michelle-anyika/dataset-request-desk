@@ -147,6 +147,29 @@ describe("request detail for staff", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Assign at least 20 episodes before delivering.");
   });
 
+  test("if someone else already moved the request, the page catches up with its current status", async () => {
+    const stale = makeRequest({ ...submitted, status: "submitted" });
+    let current = stale;
+    server.use(
+      ...sessionFor(operator),
+      http.get(`/api/requests/${stale.id}/`, () => HttpResponse.json(current)),
+      http.get(`/api/requests/${stale.id}/events/`, () => HttpResponse.json(page([]))),
+      http.get(`/api/requests/${stale.id}/assignments/`, () => HttpResponse.json(page([]))),
+      http.post(`/api/requests/${stale.id}/transitions/`, () => {
+        current = { ...stale, status: "in_progress" }; // another operator started it a moment ago
+        return apiError(409, "invalid_transition", "Can't go from in progress to in progress.");
+      }),
+    );
+    renderAt(<App />, `/requests/${stale.id}`);
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: "Start work" }));
+
+    expect(await screen.findByRole("button", { name: "Mark as delivered" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Start work" })).not.toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent(/changed since you opened it/i);
+  });
+
   test("a rejected request shows the client's reason and can be reworked", async () => {
     const rejected = makeRequest({ ...submitted, status: "rejected", assigned_count: 20 });
     const sent: unknown[] = [];

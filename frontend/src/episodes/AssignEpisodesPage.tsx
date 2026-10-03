@@ -140,6 +140,11 @@ function AvailableEpisodes({ request, missing }: { request: DatasetRequest; miss
       notifications.show({ color: "teal", title: `Assigned ${plural(selected.length, "episode")}`, message: request.task_name });
       setSelected([]);
     } catch (error) {
+      if (error instanceof ApiError && error.code === "episodes_already_assigned") {
+        // Someone else took these first: drop them, keep the rest picked for another try.
+        const taken = Object.keys((error.details ?? {}) as Record<string, unknown>);
+        setSelected((current) => current.filter((episodeId) => !taken.includes(episodeId)));
+      }
       setProblem(describeFailure(error));
     }
   };
@@ -380,6 +385,7 @@ function describeFailure(error: unknown): ReactNode {
             </List.Item>
           ))}
         </List>
+        <Text size="sm">The list is up to date now. Any other episodes you picked are still selected.</Text>
       </Stack>
     );
   }

@@ -190,3 +190,26 @@ test("clients can't open it", async () => {
 
   expect(await screen.findByRole("heading", { name: "Page not found" })).toBeInTheDocument();
 });
+
+test("when another operator takes episodes first, the list refreshes and keeps the rest of the selection", async () => {
+  const api = fakeApi();
+  server.use(
+    http.post(`/api/requests/${request.id}/assignments/`, () =>
+      apiError(409, "episodes_already_assigned", "Some episodes are already assigned to a request. Nothing was assigned.", {
+        "EP-00001": "bbbbbbbb-0000-4000-8000-000000000009",
+      }),
+    ),
+  );
+  renderAt(<App />, url);
+  const user = userEvent.setup();
+
+  await user.click(await screen.findByRole("checkbox", { name: "Select EP-00001" }));
+  await user.click(screen.getByRole("checkbox", { name: "Select EP-00002" }));
+  const loadsBefore = api.episodeQueries.length;
+  await user.click(screen.getByRole("button", { name: "Assign 2 episodes" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(/list is up to date/i);
+  await waitFor(() => expect(api.episodeQueries.length).toBeGreaterThan(loadsBefore));
+  expect(screen.getByRole("button", { name: "Assign 1 episode" })).toBeEnabled();
+  expect(screen.getByRole("checkbox", { name: "Select EP-00002" })).toBeChecked();
+});
