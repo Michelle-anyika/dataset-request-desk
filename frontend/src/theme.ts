@@ -37,6 +37,7 @@ export const theme = createTheme({
   fontFamily:
     "Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
   headings: { fontWeight: "650" },
+  respectReducedMotion: true, // no sliding or fading for people who asked their system for less motion
   defaultRadius: "md",
   cursorType: "pointer",
   components: {

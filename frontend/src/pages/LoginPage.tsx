@@ -4,21 +4,15 @@ import { IconAlertCircle } from "@tabler/icons-react";
 import { useState } from "react";
 import { Link, Navigate, useLocation, useNavigate, type Location } from "react-router";
 
-import { ApiError } from "../api/client";
+import { describeError } from "../api/errors";
 import { useAuth } from "../auth/AuthProvider";
 import { BrandMark } from "../layout/BrandMark";
 import { HOME } from "../navigation";
 import { usePageTitle } from "../usePageTitle";
 
-/** The API says "Expected available in 540 seconds"; people read minutes. */
+/** Signing in is attempts, not requests: otherwise the same wording as everywhere else. */
 export function signInError(error: unknown): string {
-  if (error instanceof ApiError && error.status === 429) {
-    const seconds = Number(/(\d{1,6}) seconds/.exec(error.message)?.[1] ?? 60);
-    const minutes = Math.max(1, Math.ceil(seconds / 60));
-    return `Too many attempts. Try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`;
-  }
-  if (error instanceof ApiError && error.status < 500) return error.message;
-  return "We couldn't reach the server. Check your connection and try again.";
+  return describeError(error).replace("Too many requests.", "Too many attempts.");
 }
 
 /** A quick shape check before calling the API, which validates properly. No regex: nothing to backtrack. */

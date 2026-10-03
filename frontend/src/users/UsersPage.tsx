@@ -23,6 +23,7 @@ import { IconAlertCircle, IconPencil, IconSearch, IconUserPlus } from "@tabler/i
 import { useState } from "react";
 
 import { ApiError } from "../api/client";
+import { describeError } from "../api/errors";
 import { newIdempotencyKey } from "../api/idempotency";
 import type { Role } from "../api/types";
 import { useCreateUser, useUpdateUser, useUsers, type ManagedUser, type UserChanges } from "../api/users";
@@ -102,7 +103,7 @@ export function UsersPage() {
         {users.isPending ? (
           <TableSkeleton />
         ) : users.isError ? (
-          <LoadError what="the accounts" onRetry={() => void users.refetch()} />
+          <LoadError what="the accounts" error={users.error} onRetry={() => void users.refetch()} />
         ) : users.data.results.length === 0 ? (
           <EmptyState title="No accounts match">Try another search or filter.</EmptyState>
         ) : (
@@ -203,7 +204,7 @@ function CreateUserModal({ onClose }: { onClose: () => void }) {
       onClose();
     } catch (failure) {
       if (failure instanceof ApiError && failure.status === 400) form.setErrors(failure.fieldErrors());
-      else setError(failure instanceof ApiError ? failure.message : "We couldn't reach the server. Try again.");
+      else setError(describeError(failure));
     }
   });
 
@@ -273,7 +274,7 @@ function EditUserModal({ account, onClose }: { account: ManagedUser; onClose: ()
       onClose();
     } catch (failure) {
       if (failure instanceof ApiError && failure.status === 400) form.setErrors(failure.fieldErrors());
-      else setError(failure instanceof ApiError ? failure.message : "We couldn't reach the server. Try again.");
+      else setError(describeError(failure));
     }
   });
 

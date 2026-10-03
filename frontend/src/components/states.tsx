@@ -2,12 +2,14 @@ import { Alert, Button, Center, Group, Skeleton, Stack, Text, ThemeIcon, Title }
 import { IconAlertTriangle, IconInbox } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 
-/** A failed load, with a way to try again. */
-export function LoadError({ what, onRetry }: { what: string; onRetry?: () => void }) {
+import { loadErrorHint } from "../api/errors";
+
+/** A failed load, what to do about it, and a way to try again. */
+export function LoadError({ what, error, onRetry }: { what: string; error?: unknown; onRetry?: () => void }) {
   return (
     <Alert role="alert" color="red" variant="light" icon={<IconAlertTriangle size={18} />} title={`We couldn't load ${what}`}>
       <Stack gap="xs" align="flex-start">
-        <Text size="sm">Check your connection. If it keeps happening, the service may be down for a moment.</Text>
+        <Text size="sm">{loadErrorHint(error)}</Text>
         {onRetry && (
           <Button size="xs" variant="light" color="red" onClick={onRetry}>
             Try again

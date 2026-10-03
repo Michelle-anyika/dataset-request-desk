@@ -27,5 +27,7 @@ test("throttling is said in minutes, rounded up", () => {
 });
 
 test("a server error doesn't leak its message", () => {
-  expect(signInError(new ApiError(500, "server_error", "Traceback ..."))).toMatch(/couldn't reach the server/);
+  const message = signInError(new ApiError(500, "server_error", "Traceback ..."));
+  expect(message).toMatch(/went wrong on our side/);
+  expect(message).not.toMatch(/Traceback/);
 });

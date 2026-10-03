@@ -25,10 +25,12 @@ import { useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router";
 
 import { ApiError } from "../api/client";
+import { describeError } from "../api/errors";
 import { useAssignEpisodes, useEpisodes, useUnassignEpisode } from "../api/episodes";
 import { newIdempotencyKey } from "../api/idempotency";
-import { useAssignments, useRequest } from "../api/requests";
+import { ASSIGNMENTS_PAGE_SIZE, useAssignments, useRequest } from "../api/requests";
 import type { DatasetRequest, Episode, Quality } from "../api/types";
+import { Pager } from "../components/Pager";
 import { EmptyState, LoadError, TableSkeleton } from "../components/states";
 import { formatDate, formatDuration, plural, progressColor } from "../format";
 import { EpisodeTable } from "../requests/RequestDetailPage";
@@ -56,7 +58,7 @@ export function AssignEpisodesPage() {
     if (request.error instanceof ApiError && request.error.status === 404) {
       return <EmptyState title="Request not found" />;
     }
-    return <LoadError what="this request" onRetry={() => void request.refetch()} />;
+    return <LoadError what="this request" error={request.error} onRetry={() => void request.refetch()} />;
   }
 
   const data = request.data;
@@ -138,6 +140,11 @@ function AvailableEpisodes({ request, missing }: { request: DatasetRequest; miss
       notifications.show({ color: "teal", title: `Assigned ${plural(selected.length, "episode")}`, message: request.task_name });
       setSelected([]);
     } catch (error) {
+      if (error instanceof ApiError && error.code === "episodes_already_assigned") {
+        // Someone else took these first: drop them, keep the rest picked for another try.
+        const taken = Object.keys((error.details ?? {}) as Record<string, unknown>);
+        setSelected((current) => current.filter((episodeId) => !taken.includes(episodeId)));
+      }
       setProblem(describeFailure(error));
     }
   };
@@ -215,7 +222,7 @@ function AvailableEpisodes({ request, missing }: { request: DatasetRequest; miss
         {episodes.isPending ? (
           <TableSkeleton />
         ) : episodes.isError ? (
-          <LoadError what="the episodes" onRetry={() => void episodes.refetch()} />
+          <LoadError what="the episodes" error={episodes.error} onRetry={() => void episodes.refetch()} />
         ) : rows.length === 0 ? (
           <EmptyState title="No episodes available">
             None of this task's {qualities.join(" or ")} episodes are free. Import more, or widen the filters.
@@ -280,7 +287,8 @@ function EpisodeRow({ episode, selected, onToggle }: { episode: Episode; selecte
 }
 
 function CurrentAssignments({ requestId }: { requestId: string }) {
-  const assignments = useAssignments(requestId);
+  const [page, setPage] = useState(1);
+  const assignments = useAssignments(requestId, { page });
   const unassign = useUnassignEpisode(requestId);
   const [error, setError] = useState<string | null>(null);
 
@@ -288,9 +296,11 @@ function CurrentAssignments({ requestId }: { requestId: string }) {
     setError(null);
     try {
       await unassign.mutateAsync(episodeId);
+      // The last episode on a later page: that page no longer exists, so show the one before it.
+      if (page > 1 && assignments.data?.results.length === 1) setPage(page - 1);
       notifications.show({ color: "gray", title: "Episode removed", message: `${episodeId} is free for other requests.` });
     } catch (failure) {
-      setError(failure instanceof ApiError ? failure.message : "We couldn't reach the server. Try again.");
+      setError(describeError(failure));
     }
   };
 
@@ -315,7 +325,7 @@ function CurrentAssignments({ requestId }: { requestId: string }) {
         {assignments.isPending ? (
           <TableSkeleton rows={3} />
         ) : assignments.isError ? (
-          <LoadError what="the assigned episodes" onRetry={() => void assignments.refetch()} />
+          <LoadError what="the assigned episodes" error={assignments.error} onRetry={() => void assignments.refetch()} />
         ) : assignments.data.results.length === 0 ? (
           <Text size="sm" c="dimmed">
             Nothing assigned yet.
@@ -338,6 +348,14 @@ function CurrentAssignments({ requestId }: { requestId: string }) {
             )}
           />
         )}
+        {assignments.data && (
+          <Pager
+            label="Assigned episode pages"
+            page={page}
+            pages={Math.ceil(assignments.data.count / ASSIGNMENTS_PAGE_SIZE)}
+            onChange={setPage}
+          />
+        )}
       </Stack>
     </Paper>
   );
@@ -351,7 +369,7 @@ const REASONS: Record<string, string> = {
 
 /** The API refuses a bulk assignment as a whole and says why, per episode: show all of it at once. */
 function describeFailure(error: unknown): ReactNode {
-  if (!(error instanceof ApiError)) return "We couldn't reach the server. Nothing was assigned; try again.";
+  if (!(error instanceof ApiError) || error.status === 0 || error.status >= 500) return `${describeError(error)} Nothing was assigned.`;
   const details = (error.details ?? {}) as Record<string, string | string[]>;
   if (error.code === "episodes_already_assigned") {
     return (
@@ -367,6 +385,7 @@ function describeFailure(error: unknown): ReactNode {
             </List.Item>
           ))}
         </List>
+        <Text size="sm">The list is up to date now. Any other episodes you picked are still selected.</Text>
       </Stack>
     );
   }
@@ -384,5 +403,5 @@ function describeFailure(error: unknown): ReactNode {
       </Stack>
     );
   }
-  return error.message;
+  return describeError(error);
 }

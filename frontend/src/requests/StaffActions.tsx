@@ -4,9 +4,9 @@ import { IconAlertCircle, IconListCheck, IconPlayerPlay, IconRefresh, IconTruckD
 import { useState, type ReactNode } from "react";
 import { Link } from "react-router";
 
-import { ApiError } from "../api/client";
+import { describeError } from "../api/errors";
 import { newIdempotencyKey } from "../api/idempotency";
-import { useRequestEvents, useTransition } from "../api/requests";
+import { isConflict, useRequestEvents, useTransition } from "../api/requests";
 import type { DatasetRequest, RequestStatus } from "../api/types";
 import { daysSince, plural } from "../format";
 
@@ -24,7 +24,12 @@ export function StaffActions({ request }: { request: DatasetRequest }) {
       notifications.show({ color: "teal", title: done, message: `${request.client.full_name} has been notified.` });
       setConfirmDelivery(false);
     } catch (failure) {
-      setError(failure instanceof ApiError ? failure.message : "We couldn't reach the server. Try again.");
+      setError(
+        isConflict(failure)
+          ? `${describeError(failure)} This request changed since you opened it, so the page now shows its current status.`
+          : describeError(failure),
+      );
+      if (isConflict(failure)) setConfirmDelivery(false);
     }
   };
 
@@ -84,12 +89,13 @@ export function StaffActions({ request }: { request: DatasetRequest }) {
     case "delivered":
       return (
         <Panel
+          error={errorAlert}
           title={`Waiting for ${request.client.full_name} to review`}
           text={`Delivered ${daysSince(request.status_changed_at) ? `${plural(daysSince(request.status_changed_at), "day")} ago` : "today"}. The client is reminded automatically, and you're told if it waits too long.`}
         />
       );
     default:
-      return <Panel title="Complete" text={`${request.client.full_name} accepted the delivery.`} />;
+      return <Panel error={errorAlert} title="Complete" text={`${request.client.full_name} accepted the delivery.`} />;
   }
 }
 

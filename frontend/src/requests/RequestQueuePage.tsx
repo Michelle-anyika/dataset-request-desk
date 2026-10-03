@@ -46,7 +46,7 @@ export function RequestQueuePage() {
         {list.isPending ? (
           <TableSkeleton />
         ) : list.isError ? (
-          <LoadError what="the requests" onRetry={() => void list.refetch()} />
+          <LoadError what="the requests" error={list.error} onRetry={() => void list.refetch()} />
         ) : list.data.results.length === 0 ? (
           <EmptyState title={status ? `No ${STATUS_LABELS[status].toLowerCase()} requests` : "No requests yet"}>
             {status ? "Try another filter." : "Requests appear here as soon as clients submit them."}

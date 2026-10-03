@@ -1,7 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "./client";
-import { requestKeys } from "./requests";
+import { isConflict, requestKeys } from "./requests";
 import type { Episode, Page, Quality } from "./types";
 
 export interface EpisodeFilters {
@@ -43,6 +43,7 @@ export function useAssignEpisodes(requestId: string) {
         { method: "POST", body: { episode_ids: episodeIds }, headers: { "Idempotency-Key": key } },
       ),
     onSuccess: invalidate,
+    onError: (error) => isConflict(error) && invalidate(), // the catalogue or the request changed meanwhile
   });
 }
 
@@ -52,5 +53,6 @@ export function useUnassignEpisode(requestId: string) {
     mutationFn: (episodeId: string) =>
       api<undefined>(`/api/requests/${requestId}/assignments/${encodeURIComponent(episodeId)}/`, { method: "DELETE" }),
     onSuccess: invalidate,
+    onError: (error) => isConflict(error) && invalidate(),
   });
 }

@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 
 import { ApiError } from "../api/client";
+import { describeError } from "../api/errors";
 import { newIdempotencyKey } from "../api/idempotency";
 import { useSubmitRequest } from "../api/requests";
 import { PageHeader } from "../components/states";
@@ -53,7 +54,7 @@ export function NewRequestPage() {
         form.setErrors(error.fieldErrors());
         if (!Object.keys(error.fieldErrors()).length) setFormError(error.message);
       } else {
-        setFormError(error instanceof ApiError ? error.message : "We couldn't reach the server. Try again.");
+        setFormError(describeError(error));
       }
     }
   });

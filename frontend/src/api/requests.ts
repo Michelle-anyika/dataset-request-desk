@@ -1,6 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { api } from "./client";
+import { api, ApiError } from "./client";
 import type { Assignment, DatasetRequest, NewDatasetRequest, Page, RequestEvent, RequestStatus } from "./types";
 
 export interface RequestFilters {
@@ -39,13 +39,17 @@ export function useRequestEvents(id: string) {
   });
 }
 
-export function useAssignments(id: string, { history = false } = {}) {
+/** Assigned episodes, a page at a time: a request can hold far more than the API returns at once (100). */
+export const ASSIGNMENTS_PAGE_SIZE = 50;
+
+export function useAssignments(id: string, { history = false, page = 1 } = {}) {
   return useQuery({
-    queryKey: [...requestKeys.assignments(id), { history }],
+    queryKey: [...requestKeys.assignments(id), { history, page }],
     queryFn: () =>
       api<Page<Assignment>>(`/api/requests/${id}/assignments/`, {
-        query: { page_size: 100, history: history ? "true" : undefined },
+        query: { page_size: ASSIGNMENTS_PAGE_SIZE, page, history: history ? "true" : undefined },
       }),
+    placeholderData: keepPreviousData, // keep the table on screen while the next page loads
   });
 }
 
@@ -75,5 +79,14 @@ export function useTransition(id: string) {
       void queryClient.invalidateQueries({ queryKey: requestKeys.all });
       void queryClient.invalidateQueries({ queryKey: ["notifications"] });
     },
+    // A conflict means someone else changed the request since this page loaded: show what it is now.
+    onError: (error) => {
+      if (isConflict(error)) void queryClient.invalidateQueries({ queryKey: requestKeys.all });
+    },
   });
+}
+
+/** The API's answer when the data changed under you: another person moved, assigned or released it first. */
+export function isConflict(error: unknown): error is ApiError {
+  return error instanceof ApiError && error.status === 409;
 }
