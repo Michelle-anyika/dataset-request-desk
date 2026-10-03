@@ -24,6 +24,8 @@ test("a failed load says what to do, by cause", () => {
   expect(loadErrorHint(new ApiError(0, "network", "x"))).toMatch(/connection/);
   expect(loadErrorHint(new ApiError(403, "permission_denied", "x"))).toMatch(/access/);
   expect(loadErrorHint(new ApiError(503, "unavailable", "x"))).toMatch(/moment/);
+  expect(loadErrorHint(new ApiError(429, "throttled", "Expected available in 30 seconds."))).toMatch(/Try again in 1 minute\./);
+  expect(loadErrorHint(new ApiError(0, "timeout", "x"))).toMatch(/took too long/);
 });
 
 test("a request with no answer gives up after its timeout", async () => {

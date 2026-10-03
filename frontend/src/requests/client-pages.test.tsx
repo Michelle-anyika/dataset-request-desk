@@ -123,6 +123,18 @@ describe("new request", () => {
     expect(received?.key).toMatch(/^[0-9a-f-]{36}$/);
   });
 
+  test("says so when the server can't be reached, and keeps what was typed", async () => {
+    server.use(...sessionFor(client), http.post("/api/requests/", () => HttpResponse.error()));
+    renderAt(<App />, "/requests/new");
+    const user = userEvent.setup();
+
+    await fillIn(user);
+    await user.click(screen.getByRole("button", { name: /submit request/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("We couldn't reach the server");
+    expect(screen.getByLabelText(/task/i)).toHaveValue("pick cup");
+  });
+
   test("shows the API's field errors next to the fields", async () => {
     server.use(
       ...sessionFor(client),
@@ -225,6 +237,29 @@ describe("request detail", () => {
     await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Accept" }));
 
     await waitFor(() => expect(sent).toEqual({ to_status: "accepted", comment: "" }));
+  });
+
+  test("a delivery already decided elsewhere closes the dialog and says so", async () => {
+    let current = delivered;
+    server.use(
+      ...sessionFor(client),
+      http.get(`/api/requests/${delivered.id}/`, () => HttpResponse.json(current)),
+      http.get(`/api/requests/${delivered.id}/events/`, () => HttpResponse.json(page([]))),
+      http.get(`/api/requests/${delivered.id}/assignments/`, () => HttpResponse.json(page([]))),
+      http.post(`/api/requests/${delivered.id}/transitions/`, () => {
+        current = { ...delivered, status: "accepted" }; // a colleague accepted it in another tab
+        return apiError(409, "invalid_transition", "This delivery was already accepted.");
+      }),
+    );
+    renderAt(<App />, `/requests/${delivered.id}`);
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: "Accept delivery" }));
+    await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Accept" }));
+
+    expect(await screen.findByText("This delivery has changed")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Accept delivery" })).not.toBeInTheDocument());
   });
 
   test("rejecting asks for a reason", async () => {

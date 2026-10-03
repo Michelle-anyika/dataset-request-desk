@@ -213,3 +213,47 @@ test("when another operator takes episodes first, the list refreshes and keeps t
   expect(screen.getByRole("button", { name: "Assign 1 episode" })).toBeEnabled();
   expect(screen.getByRole("checkbox", { name: "Select EP-00002" })).toBeChecked();
 });
+
+test("removing the last episode on a later page goes back a page", async () => {
+  const many = makeRequest({ ...request, episodes_requested: 60, assigned_count: 51 });
+  let held = Array.from({ length: 51 }, (_, index) => assigned(index + 100));
+  server.use(
+    ...sessionFor(operator),
+    http.get(`/api/requests/${many.id}/`, () => HttpResponse.json(many)),
+    http.get("/api/episodes/", () => HttpResponse.json(page([]))),
+    http.get(`/api/requests/${many.id}/assignments/`, ({ request: http }) => {
+      const number = Number(new URL(http.url).searchParams.get("page") ?? 1);
+      return HttpResponse.json(page(held.slice((number - 1) * 50, number * 50), held.length));
+    }),
+    http.delete(`/api/requests/${many.id}/assignments/:episodeId/`, ({ params }) => {
+      held = held.filter((row) => row.episode.episode_id !== params.episodeId);
+      return new HttpResponse(null, { status: 204 });
+    }),
+  );
+  renderAt(<App />, url);
+  const user = userEvent.setup();
+
+  const pages = await screen.findByRole("navigation", { name: "Assigned episode pages" });
+  await user.click(within(pages).getByRole("button", { name: "2" }));
+  await user.click(await screen.findByRole("button", { name: "Remove EP-00150" }));
+
+  expect(await screen.findByRole("button", { name: "Remove EP-00100" })).toBeInTheDocument();
+});
+
+test("removing an episode that changed meanwhile refreshes the list", async () => {
+  const api = fakeApi();
+  server.use(
+    http.delete(`/api/requests/${request.id}/assignments/:episodeId/`, () =>
+      apiError(409, "request_not_in_progress", "The request is not in progress."),
+    ),
+  );
+  renderAt(<App />, url);
+  const user = userEvent.setup();
+
+  const remove = await screen.findByRole("button", { name: "Remove EP-00091" });
+  const loadsBefore = api.episodeQueries.length;
+  await user.click(remove);
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("The request is not in progress.");
+  await waitFor(() => expect(api.episodeQueries.length).toBeGreaterThan(loadsBefore));
+});

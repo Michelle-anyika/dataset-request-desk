@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { Link, Route, Routes } from "react-router";
 
 import { renderAt } from "../test/render";
-import { PageErrorBoundary } from "./ErrorBoundary";
+import { AppErrorBoundary, PageErrorBoundary } from "./ErrorBoundary";
 
 function Broken(): never {
   throw new Error("secret internal detail");
@@ -40,4 +40,20 @@ test("going to another page clears the error", async () => {
   await userEvent.click(screen.getByRole("link", { name: "Somewhere else" }));
 
   expect(await screen.findByText("All good here")).toBeInTheDocument();
+});
+
+test("the last-resort boundary offers a reload", async () => {
+  const reload = vi.fn();
+  vi.stubGlobal("location", { ...window.location, reload });
+  renderAt(
+    <AppErrorBoundary>
+      <Broken />
+    </AppErrorBoundary>,
+  );
+
+  await userEvent.click(await screen.findByRole("button", { name: "Reload" }));
+
+  expect(screen.getByRole("heading", { name: "Something went wrong" })).toBeInTheDocument();
+  expect(reload).toHaveBeenCalled();
+  vi.unstubAllGlobals();
 });
