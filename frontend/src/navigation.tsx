@@ -1,4 +1,4 @@
-import { IconChartBar, IconFileImport, IconInbox, IconListDetails, IconSquarePlus, IconUsers } from "@tabler/icons-react";
+import { IconChartBar, IconFileImport, IconInbox, IconListDetails, IconSquarePlus, IconTableImport, IconUsers } from "@tabler/icons-react";
 import type { ComponentType } from "react";
 
 import type { Role } from "./api/types";
@@ -20,6 +20,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Imports", to: "/imports", icon: IconFileImport, roles: STAFF },
   { label: "Analytics", to: "/analytics", icon: IconChartBar, roles: STAFF },
   { label: "Users", to: "/users", icon: IconUsers, roles: ["admin"] },
+  { label: "Migrate requests", to: "/request-imports", icon: IconTableImport, roles: ["admin"] },
 ];
 
 export function navFor(role: Role) {

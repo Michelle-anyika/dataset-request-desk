@@ -27,6 +27,9 @@ class DatasetRequest(models.Model):
     status_changed_at = models.DateTimeField(default=timezone.now)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    # The row's reference in the spreadsheet it was migrated from (issue #37); NULL for requests made here.
+    # Unique, so running the migration import again creates nothing.
+    spreadsheet_ref = models.CharField(max_length=64, null=True, blank=True, unique=True)  # noqa: DJ001
 
     class Meta:
         db_table = "dataset_requests"
