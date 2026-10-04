@@ -54,7 +54,7 @@ jobs:
       # Web app: built here and uploaded, with /api forwarded to this environment's API (frontend/vercel.json).
       - uses: actions/setup-node@v7
         with:
-          node-version: "22"
+          node-version: "24" # as CI's frontend jobs: its npm wrote package-lock.json, so npm ci agrees with it
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - name: Point /api at this environment's API
@@ -64,15 +64,18 @@ jobs:
         run: |
           sed -i "s#__API_ORIGIN__#${API_URL%/}#" vercel.json
           grep -q "__API_ORIGIN__" vercel.json && { echo "::error::API_URL is not set"; exit 1; } || true
+      # Run from the repository root: the Vercel project's root directory is frontend/, so the CLI applies it
+      # and reads frontend/vercel.json. Run inside frontend/, it would look for frontend/frontend/ and silently
+      # build without vercel.json (no /api forwarding, no security headers).
       - name: Build and deploy the web app
-        working-directory: frontend
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           PRODUCTION: ${{ inputs.environment == 'production' }}
           WEB_URL: ${{ vars.WEB_URL }}
         run: |
           npm install --global --ignore-scripts vercel@62.2.0  # pinned; no install scripts run in CI
-          npm ci --ignore-scripts  # vercel build runs the build, but outside Vercel it doesn't install first
+          # vercel build runs the build command but, outside Vercel's servers, doesn't install dependencies first.
+          npm ci --ignore-scripts --prefix frontend
           if [ "$PRODUCTION" = "true" ]; then
             vercel pull --yes --environment=production --token "$VERCEL_TOKEN"
             vercel build --prod --token "$VERCEL_TOKEN"
