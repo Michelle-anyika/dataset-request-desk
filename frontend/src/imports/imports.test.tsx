@@ -91,7 +91,7 @@ test("refuses a file that isn't a CSV before uploading it", async () => {
   await user.upload(fileInput(), new File(["x"], "photo.png", { type: "image/png" }));
   await user.click(screen.getByRole("button", { name: "Import" }));
 
-  expect(await screen.findByText("Choose the CSV export (a .csv file).")).toBeInTheDocument();
+  expect(await screen.findByText("Choose the export as a .csv or .xlsx file.")).toBeInTheDocument();
   expect(upload).not.toHaveBeenCalled();
 });
 
@@ -167,4 +167,29 @@ test("clients can't open imports", async () => {
   renderAt(<App />, "/imports");
 
   expect(await screen.findByRole("heading", { name: "Page not found" })).toBeInTheDocument();
+});
+
+test("an Excel export is accepted and sent as it is", async () => {
+  let sent: string | null = null;
+  server.use(
+    ...sessionFor(operator),
+    http.get("/api/imports/", () => HttpResponse.json(page([]))),
+    // As above: the multipart body can't be read back here; the backend tests cover parsing the workbook.
+    http.post("/api/imports/", ({ request }) => {
+      sent = request.headers.get("Content-Type");
+      return HttpResponse.json(batch({ file_name: "episodes.xlsx" }), { status: 201 });
+    }),
+    http.get("/api/imports/7/", () => HttpResponse.json(batch({ file_name: "episodes.xlsx" }))),
+    http.get("/api/imports/7/issues/", () => HttpResponse.json(page([]))),
+  );
+  renderAt(<App />, "/imports");
+  const user = userEvent.setup();
+
+  await screen.findByText("No imports yet");
+  const xlsx = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  await user.upload(fileInput(), new File(["PK"], "episodes.xlsx", { type: xlsx }));
+  await user.click(screen.getByRole("button", { name: "Import" }));
+
+  expect(await screen.findByRole("heading", { name: "episodes.xlsx" })).toBeInTheDocument();
+  expect(sent).toMatch(/^multipart\/form-data; boundary=/);
 });
