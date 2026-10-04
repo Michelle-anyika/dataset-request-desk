@@ -323,10 +323,12 @@ jobs:
       - run: echo "All required jobs passed or were skipped."
 
   # Continuous deployment, only after every check above has passed on a push (docs/deployment.md).
+  # The result of CI OK is checked explicitly: by default a job is skipped when any job before it was skipped
+  # (SonarCloud is, on main), even though CI OK passed.
   deploy-dev:
     name: Deploy to dev
     needs: ci-ok
-    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    if: ${{ !cancelled() && needs.ci-ok.result == 'success' && github.event_name == 'push' && github.ref == 'refs/heads/develop' }}
     uses: ./.github/workflows/deploy.yml
     with:
       environment: dev
@@ -335,7 +337,7 @@ jobs:
   deploy-production:
     name: Deploy to production
     needs: ci-ok
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: ${{ !cancelled() && needs.ci-ok.result == 'success' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     uses: ./.github/workflows/deploy.yml
     with:
       environment: production # waits for a reviewer's approval (environment protection rule)
