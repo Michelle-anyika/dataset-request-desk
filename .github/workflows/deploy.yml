@@ -69,7 +69,7 @@ jobs:
           PRODUCTION: ${{ inputs.environment == 'production' }}
           WEB_URL: ${{ vars.WEB_URL }}
         run: |
-          npm install --global vercel@62.2.0
+          npm install --global --ignore-scripts vercel@62.2.0  # pinned; no install scripts run in CI
           if [ "$PRODUCTION" = "true" ]; then
             vercel pull --yes --environment=production --token "$VERCEL_TOKEN"
             vercel build --prod --token "$VERCEL_TOKEN"
