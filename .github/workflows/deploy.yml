@@ -55,6 +55,8 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
       - name: Point /api at this environment's API
         working-directory: frontend
         env:
@@ -70,6 +72,7 @@ jobs:
           WEB_URL: ${{ vars.WEB_URL }}
         run: |
           npm install --global --ignore-scripts vercel@62.2.0  # pinned; no install scripts run in CI
+          npm ci --ignore-scripts  # vercel build runs the build, but outside Vercel it doesn't install first
           if [ "$PRODUCTION" = "true" ]; then
             vercel pull --yes --environment=production --token "$VERCEL_TOKEN"
             vercel build --prod --token "$VERCEL_TOKEN"
