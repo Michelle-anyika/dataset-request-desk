@@ -111,13 +111,16 @@ let refreshing: Promise<boolean> | null = null;
 /** Exchange the refresh cookie for a new access token. Resolves false when there is no valid session. */
 export function refreshSession(): Promise<boolean> {
   refreshing ??= (async () => {
+    // A sign-in can finish while this is in flight: its token is newer, so this answer must not replace it.
+    const before = accessToken;
     try {
       const response = await send("/api/auth/refresh/", { method: "POST", anonymous: true });
       if (!response.ok) {
-        setAccessToken(null);
+        if (accessToken === before) setAccessToken(null);
         return false;
       }
-      setAccessToken(((await response.json()) as AccessToken).access);
+      const { access } = (await response.json()) as AccessToken;
+      if (accessToken === before) setAccessToken(access);
       return true;
     } catch {
       return false; // network error: keep the current state, the next request will try again
