@@ -27,6 +27,16 @@ Enum request_status {
   rejected
 }
 
+Enum notification_kind {
+  request_submitted
+  request_delivered
+  delivery_accepted
+  delivery_rejected
+  review_reminder
+  review_escalation
+  deadline_approaching
+}
+
 Enum import_status {
   running
   completed
@@ -41,6 +51,7 @@ Table users {
   organisation varchar(150) [note: 'clients only, e.g. Acme Robotics']
   role user_role [not null, default: 'client']
   is_active boolean [not null, default: true, note: 'deactivate instead of delete']
+  session_version integer [not null, default: 0, note: 'copied into every token; raised by logout-all, deactivation, password or role change to reject all older tokens']
   last_login timestamptz
   created_at timestamptz [not null, default: `now()`]
   updated_at timestamptz [not null, default: `now()`]
@@ -66,7 +77,7 @@ Table episodes {
   task_name varchar(120) [not null, note: 'normalised: trimmed, single spaces, lower-case']
   recorded_at timestamptz [not null, note: 'stored in UTC']
   duration_seconds integer [not null, note: 'CHECK (duration_seconds > 0)']
-  operator_name varchar(100)
+  operator_name varchar(100) [not null, default: '', note: 'empty when missing from the export']
   quality episode_quality [not null]
   import_batch_id bigint [ref: > import_batches.id, note: 'batch that last created/updated this row']
   created_at timestamptz [not null, default: `now()`]
@@ -89,6 +100,8 @@ Table import_batches {
   updated_count integer [not null, default: 0]
   unchanged_count integer [not null, default: 0]
   skipped_count integer [not null, default: 0]
+  fixed_count integer [not null, default: 0, note: 'imported rows whose values had to be normalised']
+  error_message text [note: 'why a failed import stopped, e.g. a missing column']
   started_at timestamptz [not null, default: `now()`]
   finished_at timestamptz
 
@@ -118,12 +131,15 @@ Table dataset_requests {
   deadline date [not null]
   notes text
   status request_status [not null, default: 'submitted']
+  status_changed_at timestamptz [not null, default: `now()`, note: 'when the current status was entered; drives reminders']
   created_at timestamptz [not null, default: `now()`]
   updated_at timestamptz [not null, default: `now()`]
+  spreadsheet_ref varchar(64) [unique, note: 'reference of the spreadsheet row it was migrated from; NULL for requests made here. Unique, so re-running the migration creates nothing']
 
   indexes {
     (client_id, status) [note: 'client "my requests" list']
     (status, deadline) [note: 'operator queue']
+    (status, status_changed_at) [note: 'deliveries awaiting a decision, oldest first']
   }
 }
 
@@ -159,4 +175,40 @@ Table assignments {
   }
 
   Note: 'History is kept: unassigning sets released_at instead of deleting.'
+}
+
+Table notifications {
+  id bigint [pk, increment]
+  recipient_id uuid [not null, ref: > users.id]
+  request_id uuid [not null, ref: > dataset_requests.id]
+  event_id bigint [ref: > request_status_events.id, note: 'NULL for reminders and deadline warnings']
+  kind notification_kind [not null]
+  created_at timestamptz [not null, default: `now()`]
+  read_at timestamptz [note: 'NULL = unread (in-app inbox)']
+  emailed_at timestamptz [note: 'NULL = not emailed yet; email kinds are retried by send_reminders']
+
+  indexes {
+    (recipient_id, read_at, created_at) [note: 'inbox and unread count']
+    (request_id, kind) [note: 'reminder idempotency: how many reminders were already sent']
+  }
+
+  Note: 'Created in the same transaction as the status event; emails are sent after commit.'
+}
+
+// Managed by djangorestframework-simplejwt (token_blacklist app): refresh tokens issued and revoked.
+Table token_blacklist_outstandingtoken {
+  id bigint [pk, increment]
+  user_id uuid [ref: > users.id]
+  jti varchar(255) [unique, not null, note: 'token id claim']
+  token text [not null]
+  created_at timestamptz
+  expires_at timestamptz [not null]
+}
+
+Table token_blacklist_blacklistedtoken {
+  id bigint [pk, increment]
+  token_id bigint [unique, not null, ref: - token_blacklist_outstandingtoken.id]
+  blacklisted_at timestamptz [not null]
+
+  Note: 'Rotated, logged-out and revoked refresh tokens. Expired rows are removed daily by flushexpiredtokens.'
 }

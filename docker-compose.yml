@@ -1,0 +1,84 @@
+# Local stack: `docker compose up`. Every value has a safe local default, so no .env file is needed;
+# copy .env.example to .env to override.
+name: dataset-request-desk
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-desk}
+      POSTGRES_USER: ${POSTGRES_USER:-desk}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-desk}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build:
+      context: ./backend
+      args:
+        INSTALL_DEV: "true"
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-desk}:${POSTGRES_PASSWORD:-desk}@db:5432/${POSTGRES_DB:-desk}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-true}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-local-dev-only-not-a-secret}
+      JWT_SIGNING_KEY: ${JWT_SIGNING_KEY:-local-dev-only-jwt-signing-key-not-a-secret}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,api}
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
+      HTTPS_ONLY: ${HTTPS_ONLY:-false}  # plain HTTP locally, even with DJANGO_DEBUG=false (production-like runs)
+      THROTTLE_ANON_RATE: ${THROTTLE_ANON_RATE:-60/min}  # raise only for load and fuzz testing
+      THROTTLE_USER_RATE: ${THROTTLE_USER_RATE:-3000/hour}  # raise only for load and fuzz testing
+      THROTTLE_LOGIN_RATE: ${THROTTLE_LOGIN_RATE:-10/min}  # raise only for end-to-end tests
+      # The app runs as a non-root user that cannot write to /app (intended): pytest's cache is off here, and
+      # coverage data goes to /tmp.
+      PYTEST_ADDOPTS: -p no:cacheprovider
+      COVERAGE_FILE: /tmp/.coverage
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${API_PORT:-8000}:8000"
+    healthcheck:
+      # The slim image has no curl; Python's standard library is enough.
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  scheduler:
+    build:
+      context: ./backend
+    # Reminders, escalations, deadline warnings and the email outbox (PLAN.md §7.4). Idempotent, so every
+    # minute is safe: emails leave within about a minute of the status change.
+    command: ["sh", "-c", "while true; do python manage.py send_reminders; sleep 60; done"]
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-desk}:${POSTGRES_PASSWORD:-desk}@db:5432/${POSTGRES_DB:-desk}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-true}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-local-dev-only-not-a-secret}
+      JWT_SIGNING_KEY: ${JWT_SIGNING_KEY:-local-dev-only-jwt-signing-key-not-a-secret}
+      RUN_MIGRATIONS: "false"
+      SEED_DEMO_DATA: "false"
+    depends_on:
+      api:
+        condition: service_healthy  # the api has applied the migrations
+
+  # The React app, served by nginx, which also proxies /api to the api service: one origin, so the refresh
+  # cookie works without CORS. Open http://localhost:8080.
+  web:
+    build:
+      context: ./frontend
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${WEB_PORT:-8080}:8080"
+
+volumes:
+  pgdata:

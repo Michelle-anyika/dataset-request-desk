@@ -1,0 +1,62 @@
+name: Scheduler
+
+# The deployed environments' scheduler (docs/deployment.md): Render's free plan has no cron jobs, so this runs
+# the idempotent send_reminders command against each environment's database. It sends the email outbox,
+# delivery reminders, escalations and deadline warnings. Locally the compose "scheduler" service does this.
+# GitHub runs schedules from the default branch only, and may start them a few minutes late.
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  send-reminders:
+    name: Reminders and email (${{ matrix.environment }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: [dev, production]
+    environment: ${{ matrix.environment }}-scheduler # no approval: production deploys need one, this must not
+    concurrency:
+      group: scheduler-${{ matrix.environment }}
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - run: "pip install --require-hashes --only-binary=:all: -r requirements.txt"
+      - name: Run send_reminders
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          FRONTEND_URL: ${{ vars.WEB_URL }}
+          EMAIL_HOST: ${{ secrets.EMAIL_HOST }}
+          EMAIL_PORT: ${{ secrets.EMAIL_PORT }}
+          EMAIL_HOST_USER: ${{ secrets.EMAIL_HOST_USER }}
+          EMAIL_HOST_PASSWORD: ${{ secrets.EMAIL_HOST_PASSWORD }}
+          DEFAULT_FROM_EMAIL: ${{ vars.DEFAULT_FROM_EMAIL }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          SENTRY_ENVIRONMENT: ${{ matrix.environment }}
+          RUN_MIGRATIONS: "false"
+        run: |
+          # Nothing is signed by this command, so throwaway keys are enough to load the settings.
+          DJANGO_SECRET_KEY="$(openssl rand -hex 32)"
+          JWT_SIGNING_KEY="$(openssl rand -hex 32)"
+          export DJANGO_SECRET_KEY JWT_SIGNING_KEY
+          if [ -n "$EMAIL_HOST" ]; then
+            export EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend EMAIL_USE_TLS=true
+          else
+            # No mail server configured: emails are discarded. Never the console backend here, because this
+            # repository's Actions logs are public and emails contain names and request details.
+            export EMAIL_BACKEND=django.core.mail.backends.dummy.EmailBackend
+          fi
+          python manage.py send_reminders

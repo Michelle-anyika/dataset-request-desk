@@ -1,0 +1,73 @@
+name: Nightly
+
+# The slow checks, against the whole stack, on every merge to develop, every night and on demand. A failure
+# emails the repository's owners and is fixed on develop before the next release (docs/testing.md "Gates").
+on:
+  push:
+    branches: [develop]
+  schedule:
+    - cron: "30 1 * * *"  # 03:30 in Kigali
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+jobs:
+  # OWASP ZAP baseline: a passive scan of every page and response (headers, cookies, information leaks).
+  zap:
+    name: Security scan (OWASP ZAP baseline)
+    runs-on: ubuntu-latest
+    env:
+      DJANGO_DEBUG: "false"  # the production settings and error pages are what's being scanned
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build and start the stack
+        run: docker compose up --build --detach --wait --wait-timeout 180
+      - name: Scan the app and the API it serves
+        uses: zaproxy/action-baseline@de8ad967d3548d44ef623df22cf95c3b0baf8b25  # v0.15.0
+        with:
+          target: http://localhost:8080
+          rules_file_name: .zap/rules.tsv  # each accepted finding is explained there
+          cmd_options: "-a"  # include the alpha passive rules too
+          fail_action: true
+          allow_issue_writing: false
+          artifact_name: zap-report
+      - name: Stop the stack
+        if: always()
+        run: docker compose down --volumes
+
+  # k6: 10,000 requests from 200 concurrent users (loadtest/api-load.js, docs/performance.md).
+  load:
+    name: Load test (k6)
+    runs-on: ubuntu-latest
+    env:
+      DJANGO_DEBUG: "false"  # production settings, as deployed
+      THROTTLE_USER_RATE: 1000000/hour  # one test user sends all the requests; rate limits have their own tests
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build and start the stack
+        run: docker compose up --build --detach --wait --wait-timeout 180
+      # As the runner's user, so k6 (otherwise uid 12345) can write the summary into the checkout.
+      - name: Run the load test
+        run: |
+          docker run --rm --user "$(id -u):$(id -g)" --network dataset-request-desk_default \
+            -v "$PWD/loadtest:/scripts" \
+            -e BASE_URL=http://api:8000 \
+            grafana/k6@sha256:e66db15b860113878fa74670e31f5e274830b7b6e42c8bff28b2f2d86a257603 \
+            run --summary-export /scripts/summary.json /scripts/api-load.js
+      - name: Upload the summary
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: k6-summary
+          path: loadtest/summary.json
+      - name: Show logs
+        if: failure()
+        run: docker compose logs api
+      - name: Stop the stack
+        if: always()
+        run: docker compose down --volumes

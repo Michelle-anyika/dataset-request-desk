@@ -2,3 +2,5 @@
 * text=auto eol=lf
 *.png binary
 *.jpg binary
+# Test data: stored byte for byte. Its odd whitespace and line endings are part of what the import must handle.
+backend/seed/*.csv -text

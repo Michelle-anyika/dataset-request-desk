@@ -1,0 +1,50 @@
+# Setup once:  pip install pre-commit && pre-commit install
+# Also runs in CI (ci.yml "Pre-commit hooks" job), so skipping it locally doesn't skip the checks.
+default_install_hook_types: [pre-commit, commit-msg]
+default_stages: [pre-commit]
+# backend/seed/ holds files supplied with the brief (the messy export, its generator): kept exactly as given.
+exclude: ^backend/seed/
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=1024]
+      - id: detect-private-key
+      # Commits only on correctly named work branches; never directly on main/develop.
+      # Same pattern as the "Branch naming" job in .github/workflows/pr-checks.yml.
+      - id: no-commit-to-branch
+        args:
+          - --branch=main
+          - --branch=develop
+          - --pattern=^(?!(feat|fix|hotfix|chore|docs|test|refactor|perf|ci|build)/[a-z0-9]+(-[a-z0-9]+)*$)
+
+  - repo: local
+    hooks:
+      # pygrep runs inside pre-commit itself; the upstream trailing-whitespace executable is blocked by
+      # Windows Application Control on some managed machines.
+      - id: no-trailing-whitespace
+        name: check trailing whitespace
+        language: pygrep
+        entry: '[ \t]+$'
+        types: [text]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.9
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+        files: ^backend/
+      - id: ruff-format
+        files: ^backend/
+
+  - repo: https://github.com/alessandrojcm/commitlint-pre-commit-hook
+    rev: v9.27.0
+    hooks:
+      - id: commitlint
+        stages: [commit-msg]
+        additional_dependencies: ["@commitlint/config-conventional@21"]

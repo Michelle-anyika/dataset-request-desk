@@ -26,7 +26,8 @@ honest 70% beats a sprawling 100%"*.
 | Layer | Choice | Why |
 |---|---|---|
 | Backend | **Python 3.13, Django 5.2 LTS, Django REST Framework** | Migrations, auth and password hashing built in; familiar |
-| Auth | **djangorestframework-simplejwt** (access 15 min, refresh 1 day) | Stateless; works across the Vercel ↔ Render domains |
+| Auth | **djangorestframework-simplejwt**: access 10 min (memory), refresh 12 h (HttpOnly cookie, rotated, blacklisted) | Short-lived bearer tokens; revocable sessions. Design in [docs/security.md](docs/security.md) |
+| Passwords | **Argon2id** (`argon2-cffi`), PBKDF2 fallback | OWASP-recommended hashing; old hashes upgrade on login |
 | API docs | **drf-spectacular** (OpenAPI, Swagger UI at `/api/docs/`) | Reviewers can explore the API |
 | Filtering | **django-filter** | Episode list filters (task, quality, robot, availability) |
 | Database | **PostgreSQL 16** | `percentile_cont` for median, partial unique indexes, `jsonb` |
@@ -51,18 +52,14 @@ honest 70% beats a sprawling 100%"*.
 
 ## 3. Architecture
 
-```
-            ┌──────────────────────┐      HTTPS/JSON + JWT      ┌─────────────────────────┐      ┌──────────────┐
- Browser ──►│ React SPA (Vite)     │ ─────────────────────────► │ Django + DRF (gunicorn) │ ───► │ PostgreSQL   │
-            │ Vercel / nginx local │                            │ Render / docker local   │      │ Neon / local │
-            └──────────────────────┘                            └─────────────────────────┘      └──────────────┘
-                                                                  │ JSON logs → stdout
-                                                                  │ /health  (DB ping)
-```
+Full diagrams in **[docs/architecture.md](docs/architecture.md)**: system context, containers, backend components,
+request lifecycle, status workflow, CSV import pipeline, deployment and delivery pipeline.
 
-**Where state lives:** all business state is in PostgreSQL. The API is stateless (JWT), so any number of API
-containers can run. The frontend holds only UI state; the access token is kept in memory and the refresh token in
-`localStorage` (trade-off discussed in NOTES).
+**Where state lives:** all business state is in PostgreSQL, including the refresh-token blacklist and the shared
+throttle counters (database cache). The API is otherwise stateless, so any number of API containers can run. The
+frontend holds only UI state and the short-lived access token, in memory; the refresh token is an `HttpOnly` cookie.
+
+**Security** design, threat model and OWASP mapping: [docs/security.md](docs/security.md).
 
 ### Repository layout
 
@@ -94,14 +91,21 @@ dataset-request-desk/
 
 ## 4. Git workflow
 
-- `main` = **production**. Protected; changes only via PR from `develop`.
-- `develop` = **dev/staging**. Protected; changes only via PR from feature branches.
-- Branch names: `feature/<issue#>-short-name`, `fix/<issue#>-...`, `chore/...`, `docs/...`
-  (e.g. `feature/12-status-transitions`).
+- **Git flow.** `main` = **production** (PRs from `develop` or `hotfix/*` only). `develop` = **dev/staging**
+  (PRs from work branches).
+- Branch names: `feat/`, `fix/`, `hotfix/`, `chore/`, `docs/`, `test/`, `refactor/`, `perf/`, `ci/`, `build/` +
+  kebab-case slug, e.g. `feat/12-status-transitions`. Hotfixes branch from `main` and are back-merged to `develop`.
 - **Conventional Commits:** `feat(requests): enforce status transitions`, `test(import): idempotency on re-run`,
   `fix: ...`, `chore(ci): ...`, `docs: ...`.
+- **Enforced, not just agreed:**
+  - commitlint (`commitlint.config.mjs`) as a local `commit-msg` hook and in CI on every PR commit and the PR title;
+  - branch names by a local pre-commit hook (also blocks commits on `main`/`develop`) and by the CI
+    **Branch naming** check, which also validates source → target (e.g. `feat/*` can't PR into `main`).
+- **TDD** for domain logic: `test(...)` (red) → `feat(...)` (green) → `refactor(...)` commits.
+- PRs are merged with **merge commits** (not squash) so the TDD history stays visible.
 - Small commits, one idea each. Every PR links its issue (`Closes #12`) and must pass CI before merge.
 - Release: PR `develop → main` titled `release: vX.Y.Z`, tag after merge.
+- Full rules: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
@@ -148,7 +152,10 @@ See `docs/erd.dbml` (render at dbdiagram.io). Summary:
   `(quality, task_name)` for analytics and filters.
 - **import_batches / import_row_issues**: one row per import run and one row per skipped/fixed CSV line. This *is*
   the import report and it is kept.
-- **dataset_requests**: owned by a client; `status` column holds the current state.
+- **dataset_requests**: owned by a client; `status` holds the current state and `status_changed_at` when it was
+  entered (drives "awaiting decision for N days" and reminders without scanning events).
+- **notifications**: one row per recipient per event or reminder; `read_at` for the in-app inbox, `emailed_at` so
+  failed emails are retried.
 - **request_status_events**: append-only audit log (from, to, who, when, comment). Source of truth for history and
   for the median submitted→delivered.
 - **assignments**: episode ↔ request, with `released_at` for history. **Partial unique index**
@@ -200,6 +207,35 @@ Every transition runs in a DB transaction with `SELECT … FOR UPDATE` on the re
 - Bulk assign (`episode_ids: [...]`) is all-or-nothing in one transaction.
 - Delivered requires count ≥ requested (checked inside the transition transaction).
 - Over-assigning (more than requested) is allowed. Decision to record.
+- An episode must be recorded for the request's task (decision #19).
+
+### 7.4 Notifications and reminders
+
+Not in the brief, but the workflow has two points where it can silently stall. **A client never reviews a delivery**,
+or **operators miss a deadline**. The system must push these to people instead of waiting for someone to look.
+
+| Trigger | Recipient | In-app | Email |
+|---|---|---|---|
+| Request submitted | all active operators | ✅ | – |
+| Request delivered | owning client | ✅ | ✅ (client may not be logged in) |
+| Delivery accepted | operator who delivered it | ✅ | – |
+| Delivery rejected | operator who delivered it | ✅ | ✅ (includes the reason) |
+| **Delivered, no decision after 3 days** | owning client, every 3 days, at most 3 reminders | ✅ | ✅ |
+| **Still undecided after the last reminder** | operator who delivered it ("follow up with the client") | ✅ | ✅ |
+| Deadline in ≤ 2 days and not yet delivered | all active operators, once per request | ✅ | – |
+
+- Notifications for a status change are written **in the same transaction** as the status event, so one can't
+  exist without the other. Emails are sent **after commit** (`transaction.on_commit`), so a rolled-back change never
+  emails anyone. A failed email is logged and retried by the next reminder run (`emailed_at` stays empty).
+- Reminders and deadline warnings come from an **idempotent** command, `python manage.py send_reminders`. Running it
+  twice sends nothing extra, because it checks existing notifications before creating new ones. Locally it runs every
+  hour in a `scheduler` compose service; in the deployed environments it runs from a scheduled job.
+- **No auto-accept.** A client must accept or reject explicitly, because data quality sign-off is a business
+  decision. After the last reminder, a person (the delivering operator) takes over.
+- The operator queue shows **"awaiting client decision for N days"** from `status_changed_at`, so stale deliveries
+  are visible even without notifications.
+- Email: console backend locally (emails appear in `docker compose logs`), SMTP via environment variables in
+  deployed environments.
 
 ---
 
@@ -243,6 +279,26 @@ noted in the report) and **skipped** (not imported, reason recorded).
 (`assigned_episode_conflict`) so the import can't break the assignment rule.
 Both entry points share one service: `python manage.py import_episodes <file>` and `POST /api/imports/`.
 
+**Result on `seed/episodes.csv`:** 190 rows, **173 created, 17 skipped, 9 imported after fixes**. Imported again:
+0 created, 173 unchanged, the same 17 skipped. Also enforced: one import at a time (PostgreSQL advisory lock), the
+whole import in one transaction, non-UTF-8 or malformed files fail cleanly and are recorded as failed imports, and
+header names are matched ignoring case and surrounding spaces.
+
+### 8.1 Bulk data: what can be loaded in bulk
+
+The company runs on spreadsheets today, so bulk loading matters as much as single-record screens.
+
+| Data | Bulk path | Priority |
+|---|---|---|
+| **Episodes** | CSV import (above): upload in the UI or `import_episodes`, idempotent, with a report | P0 (brief) |
+| **Episodes from Excel** | Same import also accepts `.xlsx`: the first sheet is read into the same row pipeline, so every rule and report reason is shared | P2 |
+| **Assignments** | Bulk assign: select many episodes, one all-or-nothing request (§7.3) | P0 |
+| **Existing requests from the spreadsheet** | Admin migration import (CSV/XLSX): client email, task, count, deadline, notes, status, and a spreadsheet reference. **Dry-run preview first**, then commit. Idempotent on the reference, so re-running doesn't duplicate; history records "imported" events by the admin who ran it | P2 |
+| **Users** | Seed command today; bulk user import only if the migration import is built | – |
+
+The design choice that makes this cheap: **every bulk path reuses the same service as the single-record path**, so
+bulk data follows exactly the same rules (for example, an imported request can't skip the workflow).
+
 ---
 
 ## 9. API (v1)
@@ -251,6 +307,7 @@ Both entry points share one service: `python manage.py import_episodes <file>` a
 |---|---|---|
 | GET | `/health` | public (checks DB) |
 | POST | `/api/auth/login/`, `/api/auth/refresh/` | public |
+| POST | `/api/auth/logout/`, `/api/auth/logout-all/` | any |
 | GET | `/api/auth/me/` | any |
 | GET/POST | `/api/users/` | admin |
 | PATCH | `/api/users/{id}/` (role, is_active, name) | admin |
@@ -264,6 +321,8 @@ Both entry points share one service: `python manage.py import_episodes <file>` a
 | GET/POST | `/api/imports/` (multipart CSV) | operator |
 | GET | `/api/imports/{id}/` (report + issues) | operator |
 | GET | `/api/analytics/?from=YYYY-MM-DD&to=YYYY-MM-DD` | operator |
+| GET | `/api/notifications/?unread=true` | own only |
+| POST | `/api/notifications/{id}/read/`, `/api/notifications/read-all/` | own only |
 | GET | `/api/docs/` | Swagger UI |
 
 Errors use one JSON shape: `{"error": {"code": "invalid_transition", "message": "...", "details": {...}}}`.
@@ -276,8 +335,9 @@ All lists are paginated.
 - **Median submitted→delivered:** `percentile_cont(0.5) WITHIN GROUP (ORDER BY delivered_at - submitted_at)`, using
   the *first* delivered event per request (decision: rework doesn't reset the clock).
 - **Top 5 tasks by good episodes:** `WHERE quality='good' GROUP BY task_name ORDER BY count DESC LIMIT 5`.
-- Verified with `EXPLAIN ANALYZE` on 200k+ generated rows; 5M-row discussion in README (range scans on the composite
-  index; next steps are a daily rollup table/materialized view and monthly partitioning on `recorded_at`).
+- Verified on 200k generated rows: 30-day analytics in 0.17 s, a year in 0.71 s; per-day uses an index range
+  scan on `(recorded_at, robot)`. Numbers and the 5M-episode plan (daily rollup table, monthly partitions,
+  keyset pagination, `COPY` imports) are in the README.
 
 ### Logging
 Middleware emits one JSON line per request:
@@ -307,7 +367,13 @@ The UI shows only the actions allowed for the user's role, but **the server stay
 
 ## 11. Testing strategy (what we test and why)
 
+Full strategy, layers and gates: **[docs/testing.md](docs/testing.md)**.
+
 Priority is what the reviewers named: **authorization, transitions, assignments, import idempotency**.
+
+**Approach: TDD** for everything below except the frontend. Each rule in §7/§8 starts as a failing test, so the
+tables in those sections are the test list. Use pytest-django's `django_db` against real Postgres (not SQLite),
+because the partial unique index and `percentile_cont` are Postgres features.
 
 - **Authorization:** matrix test (parametrised role × endpoint → expected status), client A can't see or act on client
   B's request (404), inactive user rejected, operator can't manage users, client can't assign.
@@ -327,48 +393,42 @@ One command: `docker compose run --rm api pytest` (and `make test`).
 
 ## 12. Schedule
 
-### Tue 29 Sep: Foundations
-- [x] Repo created, plan, ERD script
-- [ ] CI workflow, `develop` branch, branch protection
-- [ ] ERD reviewed at dbdiagram.io → adjust
-- [ ] User stories → GitHub Issues + Project board
-- [ ] Backend scaffold: Django project, settings from env, Dockerfile, docker compose (db + api), `/health`, JSON
-      request logging
+Re-planned on Thu 01 Oct: foundations took longer than planned (repository rules, history clean-up, architecture),
+so domain work is compressed into Thursday and Friday. The board (GitHub Project) is the live view.
 
-### Wed 30 Sep: Auth + requests core
-- [ ] Custom User model + migrations, seed command (users.json, robots), JWT login/refresh/me
-- [ ] Permission classes; admin user management endpoints
-- [ ] DatasetRequest + events; state machine service; transition endpoint
-- [ ] Tests: authorization matrix, transitions
+### Tue 29 – Wed 30 Sep: Foundations ✅
+- [x] Repo, plan, ERD, architecture document
+- [x] CI, commit and branch rules, branch protection, Dependabot
+- [x] User stories as issues on the Project board
+- [x] Django + Docker Compose (#2), `/health` and JSON request logging (#3)
 
-### Thu 01 Oct: Episodes, import, assignments, analytics
-- [ ] Robot/Episode models, CSV import service + command + endpoint + report models
-- [ ] Assignment model with partial unique index; assign/unassign endpoints; episode list with filters
-- [ ] Analytics endpoint (SQL), EXPLAIN on 200k rows
-- [ ] Tests: import (each case + idempotency), assignments, analytics
-- [ ] SonarCloud connected
+### Thu 01 Oct: Accounts and requests core
+- [ ] Custom User + seed (#4), JWT login (#5), admin user management (#16)
+- [ ] Requests: create, scoped visibility, workflow, accept/reject, history (#6–#10)
+- [ ] Error reporting to Sentry
 
-### Fri 02 Oct: Frontend
-- [ ] Vite + React + TS + MUI scaffold, auth context, axios interceptor, protected routes
-- [ ] Client pages; operator pages (queue, detail, assign); imports; analytics; users
-- [ ] Frontend container (nginx) in compose → **full `docker compose up` from clean clone**
+### Fri 02 Oct: Episodes, assignments, analytics, notifications
+- [ ] CSV import (#11), episode filters (#12), assign/unassign (#13, #14), analytics (#15)
+- [ ] Notifications on status changes; reminders command and scheduler; email
+- [ ] SonarCloud (#17)
 
-### Sat 03 Oct: Deploy + hardening
-- [ ] Neon (dev/prod branches), Render (2 services), Vercel; CD workflow; secrets
-- [ ] Release `develop → main` v0.1.0; smoke test prod
-- [ ] Edge cases, error messages, empty states; frontend tests
+### Sat 03 Oct: Frontend
+- [ ] Scaffold, auth, protected routes (#18); client (#19) and operator (#20, #21) pages; notification bell
+- [ ] Import report (#22), analytics (#23), admin users (#24)
+- [ ] Frontend container in compose → **full `docker compose up` from a clean clone**
 
-### Sun 04 Oct: Write-up + submit
-- [ ] `README.md`: run, test, credentials, URLs, badges, screenshots, 5M-episodes section
-- [ ] `NOTES.md`: all 6 sections (design, left out, what went wrong, security, scale, AI tooling)
-- [ ] Clean-clone test on a fresh folder; final release; **email the link by 16:00**
+### Sun 04 Oct: Deploy, write-up, submit
+- [ ] Deploy dev and prod with CD, uptime monitor (#25)
+- [ ] `README.md` and `NOTES.md` (#26); clean-clone test in a fresh folder
+- [ ] Release `develop → main`; **email the link by 16:00**
 
 ### Cut list (if behind, cut from the top)
-1. Frontend tests beyond login/guard
-2. Analytics chart (show tables instead)
-3. Dev environment (keep prod only)
-4. SonarCloud
-5. Deployment entirely (it's the stretch item; everything else is required)
+1. Existing-request migration import and `.xlsx` support (P2)
+2. Admin users page (P2), frontend tests beyond login and route guards
+3. Analytics chart (show tables instead)
+4. Deadline warnings (keep delivery reminders)
+5. Dev environment (keep prod only), then SonarCloud
+6. Deployment entirely (it's the stretch item; everything else is required)
 
 ---
 
@@ -390,4 +450,16 @@ One command: `docker compose run --rm api pytest` (and `make test`).
 | 5 | Naive CSV timestamps = UTC; `DD/MM/YYYY` day-first | Stated assumption |
 | 6 | Median uses first delivery | Rework doesn't hide slow first delivery |
 | 7 | UUID for users/requests, bigint for episodes | Non-guessable URLs; compact high-volume index |
-| 8 | JWT in memory + refresh in localStorage | Cross-domain deploy; XSS risk acknowledged, mitigated by CSP + short access TTL |
+| 8 | Access token in memory; refresh token in an `HttpOnly; SameSite=Strict` cookie; API served same-origin through an `/api` proxy | JavaScript can't read the refresh token, so XSS can't steal a session; same origin avoids third-party cookie blocking and CORS (revised from `localStorage`) |
+| 9 | One repository (monorepo) for backend and frontend | Brief asks for one repo and `docker compose up` from a clean clone; API + UI change in one PR; Render/Vercel deploy by root directory |
+| 10 | Notifications and reminders, though not in the brief | A delivery nobody reviews, or a missed deadline, would otherwise stall silently |
+| 11 | Email as well as in-app for client-facing events | A client who forgets doesn't log in; email reaches them |
+| 12 | No auto-accept after reminders; hand over to the delivering operator | Accepting data is a business decision the client must make |
+| 13 | Errors pushed to Sentry, uptime monitored on `/health` | Logs explain problems but nobody reads them to *find* problems |
+| 14 | Bulk paths reuse single-record services | Bulk data can't bypass the rules |
+| 15 | Refresh rotation with reuse detection: a reused revoked token revokes all the user's sessions | A copied refresh token is detected the first time either party uses it |
+| 16 | `session_version` on the user, copied into every token, instead of only a blacklist | Deactivation, password and role changes end every session at once, access tokens included. Replaced a `tokens_valid_after` timestamp during TDD: JWT `iat` has one-second precision, so same-second tokens escaped revocation |
+| 17 | Login throttling backed by the database cache | Counters shared across gunicorn workers without adding Redis |
+| 18 | Stay on Django 5.2 LTS and Python 3.13 for this release (Dependabot told to ignore Django 6, Python 3.14) | LTS security support to 2028; no major upgrade days before submission |
+| 19 | Episodes must match the request's task to be assigned | The brief only names quality, but delivering "fold towel" clips for a "pick cup" request is never right; both task names are normalised the same way |
+| 20 | Bulk assign is all-or-nothing and reports every problem at once (unknown, bad quality, task mismatch, already held) | An operator fixes the whole selection in one go instead of one error per attempt |

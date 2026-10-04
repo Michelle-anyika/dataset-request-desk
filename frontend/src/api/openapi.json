@@ -1,0 +1,4127 @@
+{
+    "openapi": "3.0.3",
+    "info": {
+        "title": "Dataset Request Desk API",
+        "version": "1.0.0",
+        "description": "Internal API for dataset requests, episodes and fulfilment."
+    },
+    "paths": {
+        "/api/analytics/": {
+            "get": {
+                "operationId": "analytics_retrieve",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "from",
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        },
+                        "description": "Inclusive start date (Kigali)."
+                    },
+                    {
+                        "in": "query",
+                        "name": "to",
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        },
+                        "description": "Inclusive end date (Kigali). The range is at most 366 days."
+                    }
+                ],
+                "tags": [
+                    "analytics"
+                ],
+                "security": [
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Analytics"
+                                }
+                            }
+                        },
+                        "description": ""
+                    },
+                    "400": {
+                        "description": "Invalid input; `details` lists the problems per field.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not signed in, or the access token is invalid or expired.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Signed in, but your role may not do this.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many requests; retry after the number of seconds in `Retry-After`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/auth/login/": {
+            "post": {
+                "operationId": "auth_login_create",
+                "description": "Sets the refresh token as an HttpOnly cookie. Throttled per IP and per email.",
+                "tags": [
+                    "auth"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/LoginRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {}
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LoginResponse"
+                                }
+                            }
+                        },
+                        "description": ""
+                    },
+                    "400": {
+                        "description": "Invalid input; `details` lists the problems per field.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "Email or password is incorrect."
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "The browser marked the request as coming from another site."
+                    },
+                    "429": {
+                        "description": "Too many requests; retry after the number of seconds in `Retry-After`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/auth/logout/": {
+            "post": {
+                "operationId": "auth_logout_create",
+                "description": "Ends this session and clears the cookie.",
+                "tags": [
+                    "auth"
+                ],
+                "security": [
+                    {}
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No response body"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "The browser marked the request as coming from another site."
+                    },
+                    "429": {
+                        "description": "Too many requests; retry after the number of seconds in `Retry-After`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/auth/logout-all/": {
+            "post": {
+                "operationId": "auth_logout_all_create",
+                "description": "Ends every session of the current user.",
+                "tags": [
+                    "auth"
+                ],
+                "security": [
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No response body"
+                    },
+                    "401": {
+                        "description": "Not signed in, or the access token is invalid or expired.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Signed in, but your role may not do this.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many requests; retry after the number of seconds in `Retry-After`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/auth/me/": {
+            "get": {
+                "operationId": "auth_me_retrieve",
+                "tags": [
+                    "auth"
+                ],
+                "security": [
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/User"
+                                }
+                            }
+                        },
+                        "description": ""
+                    },
+                    "401": {
+                        "description": "Not signed in, or the access token is invalid or expired.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Signed in, but your role may not do this.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many requests; retry after the number of seconds in `Retry-After`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/auth/refresh/": {
+            "post": {
+                "operationId": "auth_refresh_create",
+                "description": "Uses and rotates the refresh cookie. Reusing an old refresh token ends every session.",
+                "tags": [
+                    "auth"
+                ],
+                "security": [
+                    {}
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AccessToken"
+                                }
+                            }
+                        },
+                        "description": ""
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "No session, or it has expired or been revoked."
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "The browser marked the request as coming from another site."
+                    },
+                    "429": {
+                        "description": "Too many requests; retry after the number of seconds in `Retry-After`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/episodes/": {
+            "get": {
+                "operationId": "episodes_list",
+                "description": "The episode catalogue, for operators choosing what to assign.",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "available",
+                        "schema": {
+                            "enum": [
+                                "true",
+                                "false"
+                            ],
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "description": "true: not assigned to any request right now.\n\n* `true` - true\n* `false` - false"
+                    },
+                    {
+                        "in": "query",
+                        "name": "ordering",
+                        "schema": {
+                            "enum": [
+                                "-recorded_at",
+                                "recorded_at",
+                                "episode_id",
+                                "-episode_id",
+                                "duration_seconds",
+                                "-duration_seconds"
+                            ],
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "description": "* `-recorded_at` - -recorded_at\n* `recorded_at` - recorded_at\n* `episode_id` - episode_id\n* `-episode_id` - -episode_id\n* `duration_seconds` - duration_seconds\n* `-duration_seconds` - -duration_seconds"
+                    },
+                    {
+                        "name": "page",
+                        "required": false,
+                        "in": "query",
+                        "description": "A page number within the paginated result set.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "page_size",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "quality",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "enum": [
+                                    "good",
+                                    "usable",
+                                    "bad"
+                                ],
+                                "type": "string",
+                                "description": "* `good` - Good\n* `usable` - Usable\n* `bad` - Bad"
+                            }
+                        },
+                        "description": "Repeat to allow several, e.g. quality=good&quality=usable."
+                    },
+                    {
+                        "in": "query",
+                        "name": "robot_id",
+                        "schema": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 32
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "task_name",
+                        "schema": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 120
+                        }
+                    }
+                ],
+                "tags": [
+                    "episodes"
+                ],
+                "security": [
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedEpisodeList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    },
+                    "400": {
+                        "description": "Invalid input; `details` lists the problems per field.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not signed in, or the access token is invalid or expired.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Signed in, but your role may not do this.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found, or not visible to you (or a page past the end).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many requests; retry after the number of seconds in `Retry-After`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/imports/": {
+            "get": {
+                "operationId": "imports_list",
+                "description": "Episode imports: upload an export, then browse each run's report and its row issues.",
+                "parameters": [
+                    {
+                        "name": "page",
+                        "required": false,
+                        "in": "query",
+                        "description": "A page number within the paginated result set.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "page_size",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100
+                        }
+                    }
+                ],
+                "tags": [
+                    "imports"
+                ],
+                "security": [
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedImportBatchList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    },
+                    "400": {
+                        "description": "Invalid input; `details` lists the problems per field.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not signed in, or the access token is invalid or expired.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Signed in, but your role may not do this.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found, or not visible to you (or a page past the end).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many requests; retry after the number of seconds in `Retry-After`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "operationId": "imports_create",
+                "description": "Episode imports: upload an export, then browse each run's report and its row issues.",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Idempotency-Key",
+                        "schema": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 255,
+                            "pattern": "^[ -~]+$"
+                        },
+                        "description": "Optional, any unique string (e.g. a UUID). A retry with the same key and body replays the first response instead of doing the work again. Kept for 24 hours."
+                    }
+                ],
+                "tags": [
+                    "imports"
+                ],
+                "requestBody": {
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ImportUploadRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ImportBatch"
+                                }
+                            }
+                        },
+                        "description": ""
+                    },
+                    "400": {
+                        "description": "Invalid input; `details` lists the problems per field.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not signed in, or the access token is invalid or expired.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Signed in, but your role may not do this.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "A request with this Idempotency-Key is still being processed.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "This Idempotency-Key was already used for a different request.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many requests; retry after the number of seconds in `Retry-After`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/imports/{id}/": {
+            "get": {
+                "operationId": "imports_retrieve",
+                "description": "Episode imports: upload an export, then browse each run's report and its row issues.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this import batch.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "imports"
+                ],
+                "security": [
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ImportBatch"
+                                }
+                            }
+                        },
+                        "description": ""
+                    },
+                    "401": {
+                        "description": "Not signed in, or the access token is invalid or expired.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Signed in, but your role may not do this.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found, or not visible to you (or a page past the end).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many requests; retry after the number of seconds in `Retry-After`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/imports/{id}/issues/": {
+            "get": {
+                "operationId": "imports_issues_list",
+                "description": "Episode imports: upload an export, then browse each run's report and its row issues.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this import batch.",
+                        "required": true
+                    },
+                    {
+                        "name": "page",
+                        "required": false,
+                        "in": "query",
+                        "description": "A page number within the paginated result set.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "page_size",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "reason_code",
+                        "schema": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 50
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "severity",
+                        "schema": {
+                            "enum": [
+                                "skipped",
+                                "fixed"
+                            ],
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "description": "* `skipped` - Skipped\n* `fixed` - Fixed"
+                    }
+                ],
+                "tags": [
+                    "imports"
+                ],
+                "security": [
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedImportRowIssueList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    },
+                    "400": {
+                        "description": "Invalid input; `details` lists the problems per field.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not signed in, or the access token is invalid or expired.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Signed in, but your role may not do this.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found, or not visible to you (or a page past the end).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many requests; retry after the number of seconds in `Retry-After`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/notifications/": {
+            "get": {
+                "operationId": "notifications_list",
+                "description": "The current user's notifications. Anyone else's are \"not found\".",
+                "parameters": [
+                    {
+                        "name": "page",
+                        "required": false,
+                        "in": "query",
+                        "description": "A page number within the paginated result set.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "page_size",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "unread",
+                        "schema": {
+                            "enum": [
+                                "true",
+                                "false"
+                            ],
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "description": "Only unread notifications.\n\n* `true` - true\n* `false` - false"
+                    }
+                ],
+                "tags": [
+                    "notifications"
+                ],
+                "security": [
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedNotificationList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    },
+                    "400": {
+                        "description": "Invalid input; `details` lists the problems per field.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not signed in, or the access token is invalid or expired.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Signed in, but your role may not do this.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found, or not visible to you (or a page past the end).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many requests; retry after the number of seconds in `Retry-After`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/notifications/{id}/read/": {
+            "post": {
+                "operationId": "notifications_read_create",
+                "description": "The current user's notifications. Anyone else's are \"not found\".",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this notification.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "notifications"
+                ],
+                "security": [
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No response body"
+                    },
+                    "401": {
+                        "description": "Not signed in, or the access token is invalid or expired.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Signed in, but your role may not do this.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found, or not visible to you (or a page past the end).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many requests; retry after the number of seconds in `Retry-After`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/notifications/read-all/": {
+            "post": {
+                "operationId": "notifications_read_all_create",
+                "description": "The current user's notifications. Anyone else's are \"not found\".",
+                "tags": [
+                    "notifications"
+                ],
+                "security": [
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No response body"
+                    },
+                    "401": {
+                        "description": "Not signed in, or the access token is invalid or expired.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Signed in, but your role may not do this.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many requests; retry after the number of seconds in `Retry-After`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/notifications/summary/": {
+            "get": {
+                "operationId": "notifications_summary_retrieve",
+                "description": "Unread count for the notification bell.",
+                "tags": [
+                    "notifications"
+                ],
+                "security": [
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UnreadSummary"
+                                }
+                            }
+                        },
+                        "description": ""
+                    },
+                    "401": {
+                        "description": "Not signed in, or the access token is invalid or expired.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Signed in, but your role may not do this.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many requests; retry after the number of seconds in `Retry-After`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/request-imports/": {
+            "post": {
+                "operationId": "request_imports_create",
+                "description": "Import the file: create the rows that pass, report the rest. Re-running creates nothing.",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Idempotency-Key",
+                        "schema": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 255,
+                            "pattern": "^[ -~]+$"
+                        },
+                        "description": "Optional, any unique string (e.g. a UUID). A retry with the same key and body replays the first response instead of doing the work again. Kept for 24 hours."
+                    }
+                ],
+                "tags": [
+                    "request-imports"
+                ],
+                "requestBody": {
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ImportUploadRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/RequestImportReport"
+                                }
+                            }
+                        },
+                        "description": ""
+                    },
+                    "400": {
+                        "description": "Invalid input; `details` lists the problems per field.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not signed in, or the access token is invalid or expired.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Signed in, but your role may not do this.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "A request with this Idempotency-Key is still being processed.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "This Idempotency-Key was already used for a different request.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many requests; retry after the number of seconds in `Retry-After`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/request-imports/preview/": {
+            "post": {
+                "operationId": "request_imports_preview_create",
+                "description": "What importing the file would do, row by row. Saves nothing.",
+                "tags": [
+                    "request-imports"
+                ],
+                "requestBody": {
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ImportUploadRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/RequestImportReport"
+                                }
+                            }
+                        },
+                        "description": ""
+                    },
+                    "400": {
+                        "description": "Invalid input; `details` lists the problems per field.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not signed in, or the access token is invalid or expired.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Signed in, but your role may not do this.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many requests; retry after the number of seconds in `Retry-After`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/requests/": {
+            "get": {
+                "operationId": "requests_list",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "client",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "description": "Operators and admins only; ignored for clients."
+                    },
+                    {
+                        "in": "query",
+                        "name": "ordering",
+                        "schema": {
+                            "enum": [
+                                "created_at",
+                                "-created_at",
+                                "deadline",
+                                "-deadline",
+                                "status_changed_at",
+                                "-status_changed_at"
+                            ],
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "description": "* `created_at` - created_at\n* `-created_at` - -created_at\n* `deadline` - deadline\n* `-deadline` - -deadline\n* `status_changed_at` - status_changed_at\n* `-status_changed_at` - -status_changed_at"
+                    },
+                    {
+                        "name": "page",
+                        "required": false,
+                        "in": "query",
+                        "description": "A page number within the paginated result set.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "page_size",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "status",
+                        "schema": {
+                            "enum": [
+                                "submitted",
+                                "in_progress",
+                                "delivered",
+                                "accepted",
+                                "rejected"
+                            ],
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "description": "* `submitted` - Submitted\n* `in_progress` - In progress\n* `delivered` - Delivered\n* `accepted` - Accepted\n* `rejected` - Rejected"
+                    }
+                ],
+                "tags": [
+                    "requests"
+                ],
+                "security": [
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedDatasetRequestList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    },
+                    "400": {
+                        "description": "Invalid input; `details` lists the problems per field.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not signed in, or the access token is invalid or expired.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Signed in, but your role may not do this.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found, or not visible to you (or a page past the end).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many requests; retry after the number of seconds in `Retry-After`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "operationId": "requests_create",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Idempotency-Key",
+                        "schema": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 255,
+                            "pattern": "^[ -~]+$"
+                        },
+                        "description": "Optional, any unique string (e.g. a UUID). A retry with the same key and body replays the first response instead of doing the work again. Kept for 24 hours."
+                    }
+                ],
+                "tags": [
+                    "requests"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/DatasetRequestRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DatasetRequest"
+                                }
+                            }
+                        },
+                        "description": ""
+                    },
+                    "400": {
+                        "description": "Invalid input; `details` lists the problems per field.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not signed in, or the access token is invalid or expired.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Signed in, but your role may not do this.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "A request with this Idempotency-Key is still being processed.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "This Idempotency-Key was already used for a different request.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many requests; retry after the number of seconds in `Retry-After`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/requests/{id}/": {
+            "get": {
+                "operationId": "requests_retrieve",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "description": "A UUID string identifying this dataset request.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "requests"
+                ],
+                "security": [
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DatasetRequest"
+                                }
+                            }
+                        },
+                        "description": ""
+                    },
+                    "401": {
+                        "description": "Not signed in, or the access token is invalid or expired.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Signed in, but your role may not do this.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found, or not visible to you (or a page past the end).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many requests; retry after the number of seconds in `Retry-After`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/requests/{id}/assignments/": {
+            "get": {
+                "operationId": "requests_assignments_list",
+                "description": "Episodes assigned to the request. Clients see what is currently assigned to their own.",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "history",
+                        "schema": {
+                            "enum": [
+                                "true",
+                                "false"
+                            ],
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "description": "Staff only: include released assignments.\n\n* `true` - true\n* `false` - false"
+                    },
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "description": "A UUID string identifying this dataset request.",
+                        "required": true
+                    },
+                    {
+                        "name": "page",
+                        "required": false,
+                        "in": "query",
+                        "description": "A page number within the paginated result set.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "page_size",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100
+                        }
+                    }
+                ],
+                "tags": [
+                    "requests"
+                ],
+                "security": [
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedAssignmentHistoryList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    },
+                    "400": {
+                        "description": "Invalid input; `details` lists the problems per field.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not signed in, or the access token is invalid or expired.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Signed in, but your role may not do this.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found, or not visible to you (or a page past the end).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many requests; retry after the number of seconds in `Retry-After`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "operationId": "requests_assignments_create",
+                "description": "Assign episodes (operators and admins). All or nothing: any problem assigns none.",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Idempotency-Key",
+                        "schema": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 255,
+                            "pattern": "^[ -~]+$"
+                        },
+                        "description": "Optional, any unique string (e.g. a UUID). A retry with the same key and body replays the first response instead of doing the work again. Kept for 24 hours."
+                    },
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "description": "A UUID string identifying this dataset request.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "requests"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AssignEpisodesRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AssignResult"
+                                }
+                            }
+                        },
+                        "description": ""
+                    },
+                    "400": {
+                        "description": "Invalid input; `details` lists the problems per field.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not signed in, or the access token is invalid or expired.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Signed in, but your role may not do this.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found, or not visible to you (or a page past the end).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "The request is not in progress, or an episode is assigned elsewhere. Or: a request with this Idempotency-Key is still being processed."
+                    },
+                    "422": {
+                        "description": "This Idempotency-Key was already used for a different request.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many requests; retry after the number of seconds in `Retry-After`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/requests/{id}/assignments/{episode_id}/": {
+            "delete": {
+                "operationId": "requests_assignments_destroy",
+                "description": "Release an episode (operators and admins).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "episode_id",
+                        "schema": {
+                            "type": "string",
+                            "pattern": "^[^/]+$"
+                        },
+                        "required": true
+                    },
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "description": "A UUID string identifying this dataset request.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "requests"
+                ],
+                "security": [
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No response body"
+                    },
+                    "401": {
+                        "description": "Not signed in, or the access token is invalid or expired.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Signed in, but your role may not do this.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found, or not visible to you (or a page past the end).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "The request is not in progress."
+                    },
+                    "429": {
+                        "description": "Too many requests; retry after the number of seconds in `Retry-After`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/requests/{id}/events/": {
+            "get": {
+                "operationId": "requests_events_list",
+                "description": "Status history, oldest first, paginated (it grows with every rework). Append-only.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "description": "A UUID string identifying this dataset request.",
+                        "required": true
+                    },
+                    {
+                        "name": "page",
+                        "required": false,
+                        "in": "query",
+                        "description": "A page number within the paginated result set.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "page_size",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100
+                        }
+                    }
+                ],
+                "tags": [
+                    "requests"
+                ],
+                "security": [
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedRequestEventList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    },
+                    "400": {
+                        "description": "Invalid input; `details` lists the problems per field.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not signed in, or the access token is invalid or expired.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Signed in, but your role may not do this.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found, or not visible to you (or a page past the end).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many requests; retry after the number of seconds in `Retry-After`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/requests/{id}/transitions/": {
+            "post": {
+                "operationId": "requests_transitions_create",
+                "description": "Move the request through its workflow. Allowed steps depend on status and role.",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Idempotency-Key",
+                        "schema": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 255,
+                            "pattern": "^[ -~]+$"
+                        },
+                        "description": "Optional, any unique string (e.g. a UUID). A retry with the same key and body replays the first response instead of doing the work again. Kept for 24 hours."
+                    },
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "description": "A UUID string identifying this dataset request.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "requests"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TransitionRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DatasetRequest"
+                                }
+                            }
+                        },
+                        "description": ""
+                    },
+                    "400": {
+                        "description": "Invalid input; `details` lists the problems per field.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not signed in, or the access token is invalid or expired.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Signed in, but your role may not do this.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found, or not visible to you (or a page past the end).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "Not a valid step from the current status, or too few episodes assigned. Or: a request with this Idempotency-Key is still being processed."
+                    },
+                    "422": {
+                        "description": "This Idempotency-Key was already used for a different request.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many requests; retry after the number of seconds in `Retry-After`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/users/": {
+            "get": {
+                "operationId": "users_list",
+                "description": "Admin user management. Accounts are deactivated, never deleted.",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "is_active",
+                        "schema": {
+                            "enum": [
+                                "true",
+                                "false"
+                            ],
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "description": "* `true` - true\n* `false` - false"
+                    },
+                    {
+                        "name": "page",
+                        "required": false,
+                        "in": "query",
+                        "description": "A page number within the paginated result set.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "page_size",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "role",
+                        "schema": {
+                            "enum": [
+                                "client",
+                                "operator",
+                                "admin"
+                            ],
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "description": "* `client` - Client\n* `operator` - Operator\n* `admin` - Admin"
+                    },
+                    {
+                        "in": "query",
+                        "name": "search",
+                        "schema": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 100
+                        },
+                        "description": "Email or name contains."
+                    }
+                ],
+                "tags": [
+                    "users"
+                ],
+                "security": [
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedManagedUserList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    },
+                    "400": {
+                        "description": "Invalid input; `details` lists the problems per field.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not signed in, or the access token is invalid or expired.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Signed in, but your role may not do this.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found, or not visible to you (or a page past the end).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many requests; retry after the number of seconds in `Retry-After`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "operationId": "users_create",
+                "description": "Admin user management. Accounts are deactivated, never deleted.",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Idempotency-Key",
+                        "schema": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 255,
+                            "pattern": "^[ -~]+$"
+                        },
+                        "description": "Optional, any unique string (e.g. a UUID). A retry with the same key and body replays the first response instead of doing the work again. Kept for 24 hours."
+                    }
+                ],
+                "tags": [
+                    "users"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UserCreateRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ManagedUser"
+                                }
+                            }
+                        },
+                        "description": ""
+                    },
+                    "400": {
+                        "description": "Invalid input; `details` lists the problems per field.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not signed in, or the access token is invalid or expired.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Signed in, but your role may not do this.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "A request with this Idempotency-Key is still being processed.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "This Idempotency-Key was already used for a different request.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many requests; retry after the number of seconds in `Retry-After`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/users/{id}/": {
+            "get": {
+                "operationId": "users_retrieve",
+                "description": "Admin user management. Accounts are deactivated, never deleted.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "description": "A UUID string identifying this user.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "users"
+                ],
+                "security": [
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ManagedUser"
+                                }
+                            }
+                        },
+                        "description": ""
+                    },
+                    "401": {
+                        "description": "Not signed in, or the access token is invalid or expired.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Signed in, but your role may not do this.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found, or not visible to you (or a page past the end).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many requests; retry after the number of seconds in `Retry-After`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "operationId": "users_partial_update",
+                "description": "Admin user management. Accounts are deactivated, never deleted.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "description": "A UUID string identifying this user.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "users"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchedUserUpdateRequest"
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ManagedUser"
+                                }
+                            }
+                        },
+                        "description": ""
+                    },
+                    "400": {
+                        "description": "Invalid input; `details` lists the problems per field.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not signed in, or the access token is invalid or expired.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Signed in, but your role may not do this.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found, or not visible to you (or a page past the end).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "You can't demote or deactivate yourself, or the last active admin."
+                    },
+                    "429": {
+                        "description": "Too many requests; retry after the number of seconds in `Retry-After`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "AccessToken": {
+                "type": "object",
+                "properties": {
+                    "access": {
+                        "type": "string",
+                        "description": "Bearer token, valid for 10 minutes. Keep it in memory only."
+                    }
+                },
+                "required": [
+                    "access"
+                ]
+            },
+            "ActionEnum": {
+                "enum": [
+                    "create",
+                    "unchanged",
+                    "skip"
+                ],
+                "type": "string",
+                "description": "* `create` - create\n* `unchanged` - unchanged\n* `skip` - skip"
+            },
+            "Analytics": {
+                "type": "object",
+                "properties": {
+                    "range": {
+                        "$ref": "#/components/schemas/AnalyticsRange"
+                    },
+                    "episodes_per_day": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/DayCount"
+                        }
+                    },
+                    "top_tasks_by_good_episodes": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/TaskCount"
+                        }
+                    },
+                    "requests": {
+                        "$ref": "#/components/schemas/Fulfilment"
+                    }
+                },
+                "required": [
+                    "episodes_per_day",
+                    "range",
+                    "requests",
+                    "top_tasks_by_good_episodes"
+                ]
+            },
+            "AnalyticsRange": {
+                "type": "object",
+                "description": "``from`` and ``to`` are inclusive business dates (Kigali). Defaults: the last 30 days, ending today.",
+                "properties": {
+                    "from": {
+                        "type": "string",
+                        "format": "date",
+                        "description": "Inclusive start date (Kigali)."
+                    },
+                    "to": {
+                        "type": "string",
+                        "format": "date",
+                        "description": "Inclusive end date (Kigali). The range is at most 366 days."
+                    }
+                }
+            },
+            "AssignEpisodesRequest": {
+                "type": "object",
+                "properties": {
+                    "episode_ids": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 32
+                        },
+                        "maxItems": 500
+                    }
+                },
+                "required": [
+                    "episode_ids"
+                ]
+            },
+            "AssignResult": {
+                "type": "object",
+                "properties": {
+                    "assigned": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "assigned_count": {
+                        "type": "integer"
+                    },
+                    "episodes_requested": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "assigned",
+                    "assigned_count",
+                    "episodes_requested"
+                ]
+            },
+            "AssignedEpisode": {
+                "type": "object",
+                "properties": {
+                    "episode_id": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "robot_id": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "task_name": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "recorded_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "duration_seconds": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "quality": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/QualityEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "duration_seconds",
+                    "episode_id",
+                    "quality",
+                    "recorded_at",
+                    "robot_id",
+                    "task_name"
+                ]
+            },
+            "AssignmentHistory": {
+                "type": "object",
+                "description": "What staff see: including released assignments and who made each change.",
+                "properties": {
+                    "episode": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/AssignedEpisode"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "assigned_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "assigned_by": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/EventAuthor"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "released_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "released_by": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/EventAuthor"
+                            }
+                        ],
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "assigned_at",
+                    "assigned_by",
+                    "episode",
+                    "released_at",
+                    "released_by"
+                ]
+            },
+            "DatasetRequest": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "readOnly": true
+                    },
+                    "client": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RequestClient"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "task_name": {
+                        "type": "string",
+                        "maxLength": 120
+                    },
+                    "episodes_requested": {
+                        "type": "integer",
+                        "maximum": 1000000,
+                        "minimum": 1
+                    },
+                    "assigned_count": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "description": "Episodes currently assigned to the request."
+                    },
+                    "deadline": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "notes": {
+                        "type": "string",
+                        "maxLength": 2000
+                    },
+                    "status": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RequestStatus"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "status_changed_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "assigned_count",
+                    "client",
+                    "created_at",
+                    "deadline",
+                    "episodes_requested",
+                    "id",
+                    "status",
+                    "status_changed_at",
+                    "task_name"
+                ]
+            },
+            "DatasetRequestRequest": {
+                "type": "object",
+                "properties": {
+                    "task_name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 120
+                    },
+                    "episodes_requested": {
+                        "type": "integer",
+                        "maximum": 1000000,
+                        "minimum": 1
+                    },
+                    "deadline": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "notes": {
+                        "type": "string",
+                        "maxLength": 2000
+                    }
+                },
+                "required": [
+                    "deadline",
+                    "episodes_requested",
+                    "task_name"
+                ]
+            },
+            "DayCount": {
+                "type": "object",
+                "properties": {
+                    "date": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "robot_id": {
+                        "type": "string"
+                    },
+                    "episodes": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "date",
+                    "episodes",
+                    "robot_id"
+                ]
+            },
+            "Episode": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "episode_id": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "robot_id": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "task_name": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "recorded_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "duration_seconds": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "operator_name": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "quality": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/QualityEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "assigned_request": {
+                        "type": "string",
+                        "format": "uuid",
+                        "readOnly": true,
+                        "nullable": true,
+                        "description": "The request this episode is actively assigned to, if any."
+                    }
+                },
+                "required": [
+                    "assigned_request",
+                    "duration_seconds",
+                    "episode_id",
+                    "id",
+                    "operator_name",
+                    "quality",
+                    "recorded_at",
+                    "robot_id",
+                    "task_name"
+                ]
+            },
+            "Error": {
+                "type": "object",
+                "properties": {
+                    "error": {
+                        "$ref": "#/components/schemas/ErrorBody"
+                    }
+                },
+                "required": [
+                    "error"
+                ]
+            },
+            "ErrorBody": {
+                "type": "object",
+                "properties": {
+                    "code": {
+                        "type": "string",
+                        "description": "Stable, machine-readable error code, e.g. `invalid_transition`."
+                    },
+                    "message": {
+                        "type": "string",
+                        "description": "Readable explanation, safe to show to the user."
+                    },
+                    "details": {
+                        "description": "Extra context; for 400 errors, the problems per field."
+                    }
+                },
+                "required": [
+                    "code",
+                    "message"
+                ]
+            },
+            "EventAuthor": {
+                "type": "object",
+                "description": "Name and role only: clients see who acted, never staff email addresses or ids.",
+                "properties": {
+                    "full_name": {
+                        "type": "string",
+                        "maxLength": 150
+                    },
+                    "role": {
+                        "$ref": "#/components/schemas/RoleEnum"
+                    }
+                },
+                "required": [
+                    "full_name"
+                ]
+            },
+            "Fulfilment": {
+                "type": "object",
+                "properties": {
+                    "by_status": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "integer"
+                        }
+                    },
+                    "median_hours_to_delivery": {
+                        "type": "number",
+                        "format": "double",
+                        "nullable": true
+                    },
+                    "delivered_count": {
+                        "type": "integer",
+                        "description": "Delivered requests the median is based on."
+                    }
+                },
+                "required": [
+                    "by_status",
+                    "delivered_count",
+                    "median_hours_to_delivery"
+                ]
+            },
+            "ImportBatch": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "file_name": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "status": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ImportBatchStatusEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "total_rows": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "created_count": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "updated_count": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "unchanged_count": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "skipped_count": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "fixed_count": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "error_message": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "previously_imported": {
+                        "type": "boolean",
+                        "readOnly": true,
+                        "description": "The same file (by SHA-256) was imported successfully before."
+                    },
+                    "uploaded_by": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/Uploader"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "started_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "finished_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    }
+                },
+                "required": [
+                    "created_count",
+                    "error_message",
+                    "file_name",
+                    "finished_at",
+                    "fixed_count",
+                    "id",
+                    "previously_imported",
+                    "skipped_count",
+                    "started_at",
+                    "status",
+                    "total_rows",
+                    "unchanged_count",
+                    "updated_count",
+                    "uploaded_by"
+                ]
+            },
+            "ImportBatchStatusEnum": {
+                "enum": [
+                    "running",
+                    "completed",
+                    "failed"
+                ],
+                "type": "string",
+                "description": "* `running` - Running\n* `completed` - Completed\n* `failed` - Failed"
+            },
+            "ImportRowIssue": {
+                "type": "object",
+                "properties": {
+                    "row_number": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "episode_id": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "severity": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/SeverityEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "reason_code": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "message": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "raw_row": {
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "episode_id",
+                    "message",
+                    "raw_row",
+                    "reason_code",
+                    "row_number",
+                    "severity"
+                ]
+            },
+            "ImportUploadRequest": {
+                "type": "object",
+                "properties": {
+                    "file": {
+                        "type": "string",
+                        "format": "binary"
+                    }
+                },
+                "required": [
+                    "file"
+                ]
+            },
+            "KindEnum": {
+                "enum": [
+                    "request_submitted",
+                    "request_delivered",
+                    "delivery_accepted",
+                    "delivery_rejected",
+                    "review_reminder",
+                    "review_escalation",
+                    "deadline_approaching"
+                ],
+                "type": "string",
+                "description": "* `request_submitted` - Request submitted\n* `request_delivered` - Request delivered\n* `delivery_accepted` - Delivery accepted\n* `delivery_rejected` - Delivery rejected\n* `review_reminder` - Review reminder\n* `review_escalation` - Review escalation\n* `deadline_approaching` - Deadline approaching"
+            },
+            "LoginRequest": {
+                "type": "object",
+                "properties": {
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "minLength": 1,
+                        "maxLength": 254
+                    },
+                    "password": {
+                        "type": "string",
+                        "writeOnly": true,
+                        "minLength": 1,
+                        "maxLength": 128
+                    }
+                },
+                "required": [
+                    "email",
+                    "password"
+                ]
+            },
+            "LoginResponse": {
+                "type": "object",
+                "properties": {
+                    "access": {
+                        "type": "string",
+                        "description": "Bearer token, valid for 10 minutes. Keep it in memory only."
+                    },
+                    "user": {
+                        "$ref": "#/components/schemas/User"
+                    }
+                },
+                "required": [
+                    "access",
+                    "user"
+                ]
+            },
+            "ManagedUser": {
+                "type": "object",
+                "description": "What admins see about an account.",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "readOnly": true
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "readOnly": true
+                    },
+                    "full_name": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "role": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RoleEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "organisation": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "is_active": {
+                        "type": "boolean",
+                        "readOnly": true
+                    },
+                    "last_login": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "created_at",
+                    "email",
+                    "full_name",
+                    "id",
+                    "is_active",
+                    "last_login",
+                    "organisation",
+                    "role"
+                ]
+            },
+            "Notification": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "kind": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/KindEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "message": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "request": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/NotificationRequest"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "read_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    }
+                },
+                "required": [
+                    "created_at",
+                    "id",
+                    "kind",
+                    "message",
+                    "read_at",
+                    "request"
+                ]
+            },
+            "NotificationRequest": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "readOnly": true
+                    },
+                    "task_name": {
+                        "type": "string",
+                        "maxLength": 120
+                    },
+                    "status": {
+                        "$ref": "#/components/schemas/RequestStatus"
+                    }
+                },
+                "required": [
+                    "id",
+                    "task_name"
+                ]
+            },
+            "NullEnum": {
+                "enum": [
+                    null
+                ]
+            },
+            "PaginatedAssignmentHistoryList": {
+                "type": "object",
+                "required": [
+                    "count",
+                    "results"
+                ],
+                "properties": {
+                    "count": {
+                        "type": "integer",
+                        "example": 123
+                    },
+                    "next": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?page=4"
+                    },
+                    "previous": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?page=2"
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/AssignmentHistory"
+                        }
+                    }
+                }
+            },
+            "PaginatedDatasetRequestList": {
+                "type": "object",
+                "required": [
+                    "count",
+                    "results"
+                ],
+                "properties": {
+                    "count": {
+                        "type": "integer",
+                        "example": 123
+                    },
+                    "next": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?page=4"
+                    },
+                    "previous": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?page=2"
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/DatasetRequest"
+                        }
+                    }
+                }
+            },
+            "PaginatedEpisodeList": {
+                "type": "object",
+                "required": [
+                    "count",
+                    "results"
+                ],
+                "properties": {
+                    "count": {
+                        "type": "integer",
+                        "example": 123
+                    },
+                    "next": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?page=4"
+                    },
+                    "previous": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?page=2"
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Episode"
+                        }
+                    }
+                }
+            },
+            "PaginatedImportBatchList": {
+                "type": "object",
+                "required": [
+                    "count",
+                    "results"
+                ],
+                "properties": {
+                    "count": {
+                        "type": "integer",
+                        "example": 123
+                    },
+                    "next": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?page=4"
+                    },
+                    "previous": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?page=2"
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ImportBatch"
+                        }
+                    }
+                }
+            },
+            "PaginatedImportRowIssueList": {
+                "type": "object",
+                "required": [
+                    "count",
+                    "results"
+                ],
+                "properties": {
+                    "count": {
+                        "type": "integer",
+                        "example": 123
+                    },
+                    "next": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?page=4"
+                    },
+                    "previous": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?page=2"
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ImportRowIssue"
+                        }
+                    }
+                }
+            },
+            "PaginatedManagedUserList": {
+                "type": "object",
+                "required": [
+                    "count",
+                    "results"
+                ],
+                "properties": {
+                    "count": {
+                        "type": "integer",
+                        "example": 123
+                    },
+                    "next": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?page=4"
+                    },
+                    "previous": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?page=2"
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ManagedUser"
+                        }
+                    }
+                }
+            },
+            "PaginatedNotificationList": {
+                "type": "object",
+                "required": [
+                    "count",
+                    "results"
+                ],
+                "properties": {
+                    "count": {
+                        "type": "integer",
+                        "example": 123
+                    },
+                    "next": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?page=4"
+                    },
+                    "previous": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?page=2"
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Notification"
+                        }
+                    }
+                }
+            },
+            "PaginatedRequestEventList": {
+                "type": "object",
+                "required": [
+                    "count",
+                    "results"
+                ],
+                "properties": {
+                    "count": {
+                        "type": "integer",
+                        "example": 123
+                    },
+                    "next": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?page=4"
+                    },
+                    "previous": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?page=2"
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/RequestEvent"
+                        }
+                    }
+                }
+            },
+            "PatchedUserUpdateRequest": {
+                "type": "object",
+                "description": "Fields an admin may change. The email is the login and stays fixed.",
+                "properties": {
+                    "full_name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 150
+                    },
+                    "role": {
+                        "$ref": "#/components/schemas/RoleEnum"
+                    },
+                    "organisation": {
+                        "type": "string",
+                        "maxLength": 150
+                    },
+                    "is_active": {
+                        "type": "boolean"
+                    },
+                    "password": {
+                        "type": "string",
+                        "writeOnly": true,
+                        "minLength": 1,
+                        "maxLength": 128
+                    }
+                }
+            },
+            "QualityEnum": {
+                "enum": [
+                    "good",
+                    "usable",
+                    "bad"
+                ],
+                "type": "string",
+                "description": "* `good` - Good\n* `usable` - Usable\n* `bad` - Bad"
+            },
+            "RequestClient": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "readOnly": true
+                    },
+                    "full_name": {
+                        "type": "string",
+                        "maxLength": 150
+                    },
+                    "organisation": {
+                        "type": "string",
+                        "maxLength": 150
+                    }
+                },
+                "required": [
+                    "full_name",
+                    "id"
+                ]
+            },
+            "RequestClientRequest": {
+                "type": "object",
+                "properties": {
+                    "full_name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 150
+                    },
+                    "organisation": {
+                        "type": "string",
+                        "maxLength": 150
+                    }
+                },
+                "required": [
+                    "full_name"
+                ]
+            },
+            "RequestEvent": {
+                "type": "object",
+                "properties": {
+                    "from_status": {
+                        "readOnly": true,
+                        "nullable": true,
+                        "oneOf": [
+                            {
+                                "$ref": "#/components/schemas/RequestStatus"
+                            },
+                            {
+                                "$ref": "#/components/schemas/NullEnum"
+                            }
+                        ]
+                    },
+                    "to_status": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RequestStatus"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "changed_by": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/EventAuthor"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "changed_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "comment": {
+                        "type": "string",
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "changed_at",
+                    "changed_by",
+                    "comment",
+                    "from_status",
+                    "to_status"
+                ]
+            },
+            "RequestImportReport": {
+                "type": "object",
+                "properties": {
+                    "create": {
+                        "type": "integer"
+                    },
+                    "unchanged": {
+                        "type": "integer"
+                    },
+                    "skip": {
+                        "type": "integer"
+                    },
+                    "rows": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/RowResult"
+                        }
+                    }
+                },
+                "required": [
+                    "create",
+                    "rows",
+                    "skip",
+                    "unchanged"
+                ]
+            },
+            "RequestStatus": {
+                "enum": [
+                    "submitted",
+                    "in_progress",
+                    "delivered",
+                    "accepted",
+                    "rejected"
+                ],
+                "type": "string",
+                "description": "* `submitted` - Submitted\n* `in_progress` - In progress\n* `delivered` - Delivered\n* `accepted` - Accepted\n* `rejected` - Rejected"
+            },
+            "RoleEnum": {
+                "enum": [
+                    "client",
+                    "operator",
+                    "admin"
+                ],
+                "type": "string",
+                "description": "* `client` - Client\n* `operator` - Operator\n* `admin` - Admin"
+            },
+            "RowResult": {
+                "type": "object",
+                "properties": {
+                    "row": {
+                        "type": "integer",
+                        "description": "Line in the file (the header is line 1)."
+                    },
+                    "reference": {
+                        "type": "string",
+                        "description": "The spreadsheet's reference for this request."
+                    },
+                    "action": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ActionEnum"
+                            }
+                        ],
+                        "description": "create: new (or will be, in a preview); unchanged: imported before; skip: see reason.\n\n* `create` - create\n* `unchanged` - unchanged\n* `skip` - skip"
+                    },
+                    "reason_code": {
+                        "type": "string",
+                        "description": "Why the row is skipped; empty otherwise."
+                    },
+                    "message": {
+                        "type": "string",
+                        "description": "The reason, readable."
+                    },
+                    "client_email": {
+                        "type": "string"
+                    },
+                    "task_name": {
+                        "type": "string",
+                        "description": "As it will be stored (normalised)."
+                    },
+                    "status": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "action",
+                    "client_email",
+                    "message",
+                    "reason_code",
+                    "reference",
+                    "row",
+                    "status",
+                    "task_name"
+                ]
+            },
+            "SeverityEnum": {
+                "enum": [
+                    "skipped",
+                    "fixed"
+                ],
+                "type": "string",
+                "description": "* `skipped` - Skipped\n* `fixed` - Fixed"
+            },
+            "TaskCount": {
+                "type": "object",
+                "properties": {
+                    "task_name": {
+                        "type": "string"
+                    },
+                    "good_episodes": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "good_episodes",
+                    "task_name"
+                ]
+            },
+            "TransitionRequest": {
+                "type": "object",
+                "properties": {
+                    "to_status": {
+                        "$ref": "#/components/schemas/RequestStatus"
+                    },
+                    "comment": {
+                        "type": "string",
+                        "default": "",
+                        "maxLength": 2000
+                    }
+                },
+                "required": [
+                    "to_status"
+                ]
+            },
+            "UnreadSummary": {
+                "type": "object",
+                "properties": {
+                    "unread": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "unread"
+                ]
+            },
+            "Uploader": {
+                "type": "object",
+                "properties": {
+                    "full_name": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "full_name"
+                ]
+            },
+            "User": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "readOnly": true
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "readOnly": true
+                    },
+                    "full_name": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "role": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RoleEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "organisation": {
+                        "type": "string",
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "email",
+                    "full_name",
+                    "id",
+                    "organisation",
+                    "role"
+                ]
+            },
+            "UserCreateRequest": {
+                "type": "object",
+                "properties": {
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "minLength": 1,
+                        "maxLength": 254
+                    },
+                    "full_name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 150
+                    },
+                    "role": {
+                        "$ref": "#/components/schemas/RoleEnum"
+                    },
+                    "organisation": {
+                        "type": "string",
+                        "default": "",
+                        "maxLength": 150
+                    },
+                    "password": {
+                        "type": "string",
+                        "writeOnly": true,
+                        "minLength": 1,
+                        "maxLength": 128
+                    }
+                },
+                "required": [
+                    "email",
+                    "full_name",
+                    "password",
+                    "role"
+                ]
+            }
+        },
+        "securitySchemes": {
+            "jwtAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT"
+            }
+        }
+    }
+}
