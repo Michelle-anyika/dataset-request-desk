@@ -270,12 +270,12 @@ flowchart LR
 
     subgraph dev["Dev · branch develop"]
         direction TB
-        dweb["Vercel<br/>dev domain"] --> dapi["Render<br/>desk-api-dev"] --> ddb[("Neon<br/>branch dev")]
+        dweb["Vercel<br/>dev domain"] --> dapi["Render<br/>desk-api-dev"] --> ddb[("Neon<br/>branch development")]
     end
 
     subgraph prod["Production · branch main"]
         direction TB
-        pweb["Vercel<br/>production"] --> papi["Render<br/>desk-api"] --> pdb[("Neon<br/>branch main")]
+        pweb["Vercel<br/>production"] --> papi["Render<br/>desk-api"] --> pdb[("Neon<br/>branch production")]
     end
 
     local ~~~ dev ~~~ prod

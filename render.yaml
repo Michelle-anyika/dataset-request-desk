@@ -17,7 +17,7 @@ services:
     autoDeploy: false
     healthCheckPath: /health
     envVars:
-      - key: DATABASE_URL # Neon, branch "dev" (direct connection, not pooled)
+      - key: DATABASE_URL # Neon, branch "development" (direct connection, not pooled)
         sync: false
       - key: FRONTEND_URL # links in emails
         sync: false
@@ -51,7 +51,7 @@ services:
     autoDeploy: false
     healthCheckPath: /health
     envVars:
-      - key: DATABASE_URL # Neon, branch "main" (direct connection, not pooled)
+      - key: DATABASE_URL # Neon, branch "production" (direct connection, not pooled)
         sync: false
       - key: FRONTEND_URL
         sync: false

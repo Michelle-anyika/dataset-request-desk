@@ -42,18 +42,23 @@ from → to, comment), written in the same transaction by one table-driven state
 - Naive CSV times are **UTC**, and `DD/MM/YYYY` is day-first.
 - Deadlines follow the **Kigali** business day.
 - A delivery nobody reviews triggers reminders, then escalates to an operator. It is never auto-accepted.
+- **No public sign-up:** admins create accounts and choose roles, as the brief gives that job to admins. Visitors see
+  a short landing page that explains the platform and says so.
+- When migrating the spreadsheet's requests, a row marked **delivered** is refused rather than imported:
+  delivery needs its episodes assigned here, and an imported request must not skip the workflow.
 
 ## 2. Left out or simplified
 
-- **Excel import (#36) and the migration of existing spreadsheet requests (#37).** Both would be a reader in
-  front of the same row rules, but neither is built.
 - **The import runs inside the HTTP request.** That's fine at 200k rows (49 s), not for millions.
-- **No self-service password reset and no 2FA**; admins set passwords.
-- **Operations:** there is Sentry and `/health`, but no log shipping or uptime alert. Nightly ZAP and Playwright
-  runs (#46, #47) are not built.
+- **Admins set passwords;** there is no invite email, self-service reset or 2FA.
+- **No text search on requests:** the queue filters by status and sorts, but the API has no search parameter.
+- **Free hosting:** the API sleeps after 15 minutes idle, and the scheduler runs every 15 minutes from GitHub
+  Actions instead of every minute. Without an SMTP provider, deployed environments don't send email; in-app
+  notifications work.
+- **Logs** stay in the host's console; errors go to Sentry. There is no log shipping.
 
-**With two more days:** the import as a background job with progress; the Excel and migration imports with a
-dry-run preview; Playwright journeys per role; log shipping and alerts.
+**With two more days:** the import as a background job with progress; invite emails so people set their own
+password, then single sign-on (Google) for existing accounts; request search; log shipping and alerts.
 
 ## 3. Something that went wrong
 
@@ -70,6 +75,13 @@ measurement pointed elsewhere ([`docs/performance.md`](docs/performance.md)).
 A smaller one, caught by a test: on detecting a stolen refresh token, the code revoked the user's sessions inside
 a transaction that then raised an error, so the revocation was rolled back. It now commits first.
 
+A flaky browser test turned out to be a **real bug**. An end-to-end journey sometimes landed back on the sign-in
+page right after signing in. The page snapshot showed an empty sign-in form after a successful login, and a unit
+test with a deliberately slow session check reproduced it. On load, the app asks whether an earlier session is
+still valid; when that answer arrived *after* the user had signed in, its "no session" reply signed them out and
+cleared the new token. A password manager on a slow connection could do the same to a real user. A sign-in now
+decides the session, and a late refresh can't replace a newer token.
+
 ## 4. Security
 
 - **Passwords:** Argon2id; at least 12 characters, not common, not like the email. The seed passwords are hashed.
@@ -80,7 +92,8 @@ a transaction that then raised an error, so the revocation was rolled back. It n
   - Login is throttled per IP and per email, and security events are audit-logged.
 - **Input validation:**
   - Every input goes through a serializer. Unknown, blank or repeated query parameters are a 400, not ignored.
-  - Uploads must be CSV, UTF-8, at most 20 MB.
+  - Uploads must be CSV (UTF-8) or `.xlsx`, at most 20 MB. A workbook that would unpack to more than 200 MB is
+    refused, its XML is parsed with `defusedxml`, and formulas are never evaluated.
   - There is one error shape, and a 500 reveals nothing.
   - **Schemathesis** fuzzes about 2,600 requests on every PR. Its first run found 23 problems, all fixed
     ([`docs/testing.md`](docs/testing.md#fuzzing)).
@@ -116,9 +129,17 @@ tests guarding them.
 
 I used **Claude Code** (Anthropic's terminal coding assistant) as a pair programmer for:
 - breaking the brief into a plan, a data model and user stories;
-- drafting tests first, then the code;
-- reviewing and auditing, which found the time-zone bug and gaps in the API docs;
-- running and reading the load tests and the fuzzing.
+- drafting tests first, then the code, on the backend and the frontend;
+- reviewing and auditing: a production-readiness review of the frontend (paging, error handling, conflicts), and
+  diagnosing CI failures such as the sign-in race above;
+- running and reading the load tests, the fuzzing and the security scans;
+- writing the deployment configuration, which I set up in Render, Neon, Vercel and GitHub.
 
-The choices of stack, workflow and trade-offs are mine. Every change went through a pull request with CI, after
-I'd read it, run it and questioned it, and I can explain and modify any line.
+The choices of product, stack, workflow and trade-offs are mine. For example, I asked for the landing page, chose
+admin-created accounts over open sign-up, and decided how the spreadsheet migration treats delivered rows. Every
+change went through a pull request with CI after I'd read it, run it and questioned it, and I can explain and
+modify any line.
+
+**One mistake to be open about:** for part of the project the assistant ended its commit messages with a
+`Co-Authored-By: Claude` line (11 commits on `develop`, from PRs #82 and #87–#89). I noticed late and stopped it.
+Later commits don't have it, and I left those 11 as they are rather than rewrite shared history.
