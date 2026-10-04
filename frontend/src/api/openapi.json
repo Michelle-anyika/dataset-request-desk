@@ -1224,6 +1224,191 @@
                 }
             }
         },
+        "/api/request-imports/": {
+            "post": {
+                "operationId": "request_imports_create",
+                "description": "Import the file: create the rows that pass, report the rest. Re-running creates nothing.",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Idempotency-Key",
+                        "schema": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 255,
+                            "pattern": "^[ -~]+$"
+                        },
+                        "description": "Optional, any unique string (e.g. a UUID). A retry with the same key and body replays the first response instead of doing the work again. Kept for 24 hours."
+                    }
+                ],
+                "tags": [
+                    "request-imports"
+                ],
+                "requestBody": {
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ImportUploadRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/RequestImportReport"
+                                }
+                            }
+                        },
+                        "description": ""
+                    },
+                    "400": {
+                        "description": "Invalid input; `details` lists the problems per field.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not signed in, or the access token is invalid or expired.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Signed in, but your role may not do this.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "A request with this Idempotency-Key is still being processed.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "This Idempotency-Key was already used for a different request.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many requests; retry after the number of seconds in `Retry-After`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/request-imports/preview/": {
+            "post": {
+                "operationId": "request_imports_preview_create",
+                "description": "What importing the file would do, row by row. Saves nothing.",
+                "tags": [
+                    "request-imports"
+                ],
+                "requestBody": {
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ImportUploadRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/RequestImportReport"
+                                }
+                            }
+                        },
+                        "description": ""
+                    },
+                    "400": {
+                        "description": "Invalid input; `details` lists the problems per field.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not signed in, or the access token is invalid or expired.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Signed in, but your role may not do this.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many requests; retry after the number of seconds in `Retry-After`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/requests/": {
             "get": {
                 "operationId": "requests_list",
@@ -2565,6 +2750,15 @@
                     "access"
                 ]
             },
+            "ActionEnum": {
+                "enum": [
+                    "create",
+                    "unchanged",
+                    "skip"
+                ],
+                "type": "string",
+                "description": "* `create` - create\n* `unchanged` - unchanged\n* `skip` - skip"
+            },
             "Analytics": {
                 "type": "object",
                 "properties": {
@@ -3691,6 +3885,32 @@
                     "to_status"
                 ]
             },
+            "RequestImportReport": {
+                "type": "object",
+                "properties": {
+                    "create": {
+                        "type": "integer"
+                    },
+                    "unchanged": {
+                        "type": "integer"
+                    },
+                    "skip": {
+                        "type": "integer"
+                    },
+                    "rows": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/RowResult"
+                        }
+                    }
+                },
+                "required": [
+                    "create",
+                    "rows",
+                    "skip",
+                    "unchanged"
+                ]
+            },
             "RequestStatus": {
                 "enum": [
                     "submitted",
@@ -3710,6 +3930,55 @@
                 ],
                 "type": "string",
                 "description": "* `client` - Client\n* `operator` - Operator\n* `admin` - Admin"
+            },
+            "RowResult": {
+                "type": "object",
+                "properties": {
+                    "row": {
+                        "type": "integer",
+                        "description": "Line in the file (the header is line 1)."
+                    },
+                    "reference": {
+                        "type": "string",
+                        "description": "The spreadsheet's reference for this request."
+                    },
+                    "action": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ActionEnum"
+                            }
+                        ],
+                        "description": "create: new (or will be, in a preview); unchanged: imported before; skip: see reason.\n\n* `create` - create\n* `unchanged` - unchanged\n* `skip` - skip"
+                    },
+                    "reason_code": {
+                        "type": "string",
+                        "description": "Why the row is skipped; empty otherwise."
+                    },
+                    "message": {
+                        "type": "string",
+                        "description": "The reason, readable."
+                    },
+                    "client_email": {
+                        "type": "string"
+                    },
+                    "task_name": {
+                        "type": "string",
+                        "description": "As it will be stored (normalised)."
+                    },
+                    "status": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "action",
+                    "client_email",
+                    "message",
+                    "reason_code",
+                    "reference",
+                    "row",
+                    "status",
+                    "task_name"
+                ]
             },
             "SeverityEnum": {
                 "enum": [

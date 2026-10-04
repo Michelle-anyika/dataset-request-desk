@@ -134,6 +134,7 @@ Table dataset_requests {
   status_changed_at timestamptz [not null, default: `now()`, note: 'when the current status was entered; drives reminders']
   created_at timestamptz [not null, default: `now()`]
   updated_at timestamptz [not null, default: `now()`]
+  spreadsheet_ref varchar(64) [unique, note: 'reference of the spreadsheet row it was migrated from; NULL for requests made here. Unique, so re-running the migration creates nothing']
 
   indexes {
     (client_id, status) [note: 'client "my requests" list']
