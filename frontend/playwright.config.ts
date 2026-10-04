@@ -11,6 +11,10 @@ export default defineConfig({
     baseURL: process.env.E2E_BASE_URL ?? "http://localhost:8080",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
+    // The app follows the system's reduced-motion setting (theme.ts), so popovers and dialogs appear at full
+    // opacity at once. Without it, axe could measure a dropdown mid-fade, or in the frame before its fade starts,
+    // and report its text as low contrast.
+    reducedMotion: "reduce",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
 });
