@@ -284,10 +284,12 @@ jobs:
         run: docker compose down --volumes
 
   # Static analysis and coverage of new code; the job fails if the SonarCloud quality gate fails.
+  # Not on pushes to main: main only receives releases from develop, whose identical code already passed the
+  # gate, and SonarCloud tracks develop as this project's main branch (it refuses a gate check for main).
   sonarcloud:
     name: SonarCloud
     needs: [detect, backend, frontend]
-    if: needs.detect.outputs.backend == 'true' && !cancelled()
+    if: needs.detect.outputs.backend == 'true' && !cancelled() && github.ref != 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
