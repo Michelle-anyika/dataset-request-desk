@@ -60,7 +60,11 @@ jobs:
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: echo "$PR_TITLE" | npx --no-install commitlint --verbose
+      # A release PR (develop -> main) carries commits that were each checked in their own PR into develop,
+      # plus the merge commits GitHub wrote for them; its title is still checked above. Hotfixes into main are
+      # checked commit by commit.
       - name: Lint commits
+        if: github.head_ref != 'develop' || github.base_ref != 'main'
         run: >-
           npx --no-install commitlint --verbose
           --from ${{ github.event.pull_request.base.sha }}
