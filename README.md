@@ -7,9 +7,28 @@ episodes, operators fulfil them, and clients accept or reject the delivery.
 
 **Stack:** Django REST Framework · PostgreSQL · React (Vite + TypeScript) · Docker · GitHub Actions
 
-> 🚧 Work in progress. See [PLAN.md](PLAN.md) for the implementation plan,
-> [docs/architecture.md](docs/architecture.md) for the architecture and [docs/erd.dbml](docs/erd.dbml) for the
-> data model.
+## Live
+
+| Environment | Web app | API | Accounts |
+|---|---|---|---|
+| **Production** | <https://dataset-request-desk-ten.vercel.app> | `desk-api-91nj.onrender.com` | created by an admin; no demo accounts |
+| **Dev** | <https://dataset-request-desk-dev.vercel.app> | [Swagger](https://desk-api-dev.onrender.com/api/docs/) | the [demo accounts](#demo-accounts) below |
+
+Hosted on free plans: after 15 minutes without traffic the API sleeps, and the first request can take about a
+minute. `develop` deploys to dev and `main` to production, each after CI passes, production also after approval
+([docs/deployment.md](docs/deployment.md)).
+
+## Documentation
+
+| | |
+|---|---|
+| 📄 **Architecture** | [PDF](docs/architecture.pdf) · [Markdown](docs/architecture.md) (the source; diagrams render on GitHub) |
+| 🗂 **Data model** | [Diagram (dbdiagram.io)](https://dbdiagram.io/d/dataset-request-desk-erd-6a1d23a6f15b4b045241ea4a) · [docs/erd.dbml](docs/erd.dbml) (the source, with every constraint and note) |
+| 🧠 **Design notes** | [NOTES.md](NOTES.md): decisions, trade-offs, security, scale, AI tooling |
+| ✅ **Testing** | [docs/testing.md](docs/testing.md) · [docs/performance.md](docs/performance.md) |
+| 🔐 **Security** | [docs/security.md](docs/security.md) |
+| 🚀 **Deployment** | [docs/deployment.md](docs/deployment.md) |
+| 🗺 **Plan and decision log** | [PLAN.md](PLAN.md) |
 
 ## Run it
 
@@ -19,14 +38,19 @@ Requirements: Docker with Compose v2.
 docker compose up --build
 ```
 
-This starts PostgreSQL, applies database migrations, creates the demo accounts and runs the API on
-<http://localhost:8000>. No `.env` file is needed: every setting has a local default. To override one, copy
-`.env.example` to `.env`.
+This starts PostgreSQL, applies the migrations, creates the demo accounts, imports the demo episode export and
+starts the scheduler. Then open:
+
+- **the web app** on <http://localhost:8080> (nginx serves the React app and forwards `/api` to the API);
+- **the API** on <http://localhost:8000>, with Swagger at <http://localhost:8000/api/docs/>.
+
+No `.env` file is needed: every setting has a local default. To override one, copy `.env.example` to `.env`. A real
+`.env` is never committed (it's in `.gitignore`); deployed environments keep their settings in Render and GitHub.
 
 ### Demo accounts
 
 Created from [`backend/seed/users.json`](backend/seed/users.json) by `python manage.py seed`, which runs on start
-when `SEED_DEMO_DATA=true` (the local default). Passwords are stored as PBKDF2 hashes, never in plain text.
+when `SEED_DEMO_DATA=true` (the local and dev default). Passwords are stored as Argon2id hashes, never in plain text.
 
 | Role | Email | Password |
 |---|---|---|
@@ -35,16 +59,22 @@ when `SEED_DEMO_DATA=true` (the local default). Passwords are stored as PBKDF2 h
 | Client | `client-a@example.com` (Acme Robotics), `client-b@example.com` (Beta Labs) | `client123` |
 
 Seeding is safe to repeat: existing accounts are never modified. These passwords are public, so
-`SEED_DEMO_DATA` stays off in production.
+`SEED_DEMO_DATA` stays off in production. There is no public sign-up: admins create accounts and choose roles
+(**Users** page, or `POST /api/users/`).
 
 ## Run the tests
 
 ```bash
-docker compose run --rm api pytest
+docker compose run --rm api pytest                  # backend: unit and integration, against PostgreSQL
+
+cd frontend && npm ci && npm test                   # frontend: components and pages (Vitest + Testing Library)
+npm run e2e:install && npm run e2e                  # browser journeys with accessibility checks, against
+                                                    # the running stack (docker compose up)
 ```
 
-Tests run against PostgreSQL (never SQLite), because the domain rules rely on Postgres features. The full
-testing strategy (unit, integration, fuzzing, end-to-end, security and load) is in [docs/testing.md](docs/testing.md).
+Backend tests run against PostgreSQL (never SQLite), because the domain rules rely on Postgres features. CI also
+runs API fuzzing, CodeQL, SonarCloud and dependency audits on every pull request, and an OWASP ZAP scan and a k6
+load test on `develop` and nightly. The full strategy is in [docs/testing.md](docs/testing.md).
 
 <details>
 <summary>Without Docker (backend only, needs a local PostgreSQL)</summary>
@@ -78,8 +108,8 @@ sessions.
 
 ## Importing episodes
 
-The recording system's CSV export is imported with a report of what was created, updated, unchanged and skipped,
-and why. Importing the same file again changes nothing. The decisions for each messy case are in
+The recording system's export, as **CSV or Excel (`.xlsx`, first sheet)**, is imported with a report of what
+was created, updated, unchanged and skipped, and why. Importing the same file again changes nothing. The decisions for each messy case are in
 [PLAN.md §8](PLAN.md#8-csv-import-decisions-per-messy-case).
 
 ```bash
@@ -91,8 +121,25 @@ docker compose exec api python manage.py import_episodes seed/episodes.csv --as 
 ```
 
 Or `POST /api/imports/` with the file (operators and admins), then `GET /api/imports/{id}/` and
-`GET /api/imports/{id}/issues/?severity=skipped`. Uploads are limited to `.csv` and `IMPORT_MAX_UPLOAD_BYTES`
-(20 MB by default). On start, the demo export in `backend/seed/episodes.csv` is imported once.
+`GET /api/imports/{id}/issues/?severity=skipped`, or the **Imports** page. Uploads are limited to `.csv` and
+`.xlsx` and to `IMPORT_MAX_UPLOAD_BYTES` (20 MB by default). A workbook that would unpack to more than 200 MB is
+refused. On start, the demo export in `backend/seed/episodes.csv` is imported once.
+
+### Migrating the spreadsheet's requests
+
+Admins can move the requests tracked in the old operations spreadsheet into the platform: **Migrate requests**
+page, `POST /api/request-imports/preview/` then `POST /api/request-imports/`, or the command below. A preview
+shows what each row would do before anything is saved. Rows are matched on the spreadsheet's `reference`, so
+running the same file again creates nothing.
+
+```bash
+docker compose exec api python manage.py import_requests requests.csv --as admin@example.com           # preview
+docker compose exec api python manage.py import_requests requests.csv --as admin@example.com --commit  # import
+```
+
+Columns: `reference, client_email, task_name, episodes_requested, deadline, notes, status`. Unknown clients and
+invalid values are reported, never guessed. A row marked `delivered` is refused, because delivery needs its
+episodes assigned here first.
 
 ## Analytics
 
@@ -159,7 +206,9 @@ So that nothing stalls silently (PLAN.md §7.4):
 - The `scheduler` container runs `python manage.py send_reminders` every minute. It's idempotent: it sends
   pending emails (retrying failed ones), creates due reminders and warnings, and removes expired token blacklist
   entries. Its checks run in a fixed number of SQL queries, however many requests are open.
-- Locally, emails go to the console: `docker compose logs api scheduler`. The inbox API is
+- Locally, emails go to the console: `docker compose logs api scheduler`. In the deployed environments a
+  scheduled GitHub workflow runs the same command every 15 minutes
+  ([docs/deployment.md](docs/deployment.md#scheduled-work)). The inbox API is
   `GET /api/notifications/`, `GET /api/notifications/summary/`, `POST /api/notifications/{id}/read/` and
   `POST /api/notifications/read-all/`.
 
@@ -191,7 +240,8 @@ cookies, request bodies, query strings and emails are removed before anything le
 ## Configuration
 
 All configuration is read from environment variables; `.env.example` lists each one. Missing required values
-(`DJANGO_SECRET_KEY`, `DATABASE_URL`) stop the app at startup with a clear error.
+(`DJANGO_SECRET_KEY`, `DATABASE_URL`) stop the app at startup with a clear error. Where each deployed setting
+lives is described in [docs/deployment.md](docs/deployment.md#configuration).
 
 ## Contributing
 
