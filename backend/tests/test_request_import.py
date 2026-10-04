@@ -212,3 +212,12 @@ def test_the_command_lists_skipped_rows_and_reports_unreadable_files(make_user, 
     missing = str(tmp_path / "missing.csv")
     with pytest.raises(Exception, match="No such file"):
         call_command("import_requests", missing, "--as", "admin@example.com", stdout=out)
+
+
+def test_a_csv_error_shows_our_message_not_the_csv_modules(api_as):
+    content = HEADER.encode() + b"\n" + b"x" * 200_000 + b"\n"
+
+    message = send(api_as("admin"), PREVIEW, content).json()["error"]["message"]
+
+    assert message == "The file is not valid CSV. Export it again as CSV (comma-separated, UTF-8)."
+    assert "field limit" not in message

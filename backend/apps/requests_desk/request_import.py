@@ -102,7 +102,9 @@ def import_requests(lines: Iterable[str], *, admin, commit: bool) -> Report:
     except UnicodeDecodeError as exc:
         raise ImportFailed("The file is not UTF-8 text. Export it as CSV with UTF-8 encoding.") from exc
     except csv.Error as exc:
-        raise ImportFailed(f"The file is not valid CSV: {exc}.") from exc
+        raise ImportFailed(
+            "The file is not valid CSV. Export it again as CSV (comma-separated, UTF-8)."
+        ) from exc
     if any(planned.result.action == Action.CREATE for planned in plan):
         bump_data_version()  # after commit: request analytics have changed
     return Report([planned.result for planned in plan])

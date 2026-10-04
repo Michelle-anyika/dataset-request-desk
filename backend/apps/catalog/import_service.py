@@ -72,7 +72,9 @@ def import_episodes(lines: Iterable[str], *, file_name: str, uploaded_by) -> Imp
                     "The file is not UTF-8 text. Export it as CSV with UTF-8 encoding."
                 ) from exc
             except csv.Error as exc:
-                raise ImportFailed(f"The file is not valid CSV: {exc}.") from exc
+                raise ImportFailed(
+                    "The file is not valid CSV. Export it again as CSV (comma-separated, UTF-8)."
+                ) from exc
             batch.file_sha256 = hasher.hexdigest()
             batch.status = ImportStatus.COMPLETED
             batch.finished_at = timezone.now()
