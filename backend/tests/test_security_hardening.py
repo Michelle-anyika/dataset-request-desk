@@ -26,8 +26,12 @@ class TestDefensiveHeaders:
 
         csp = client.get("/api/docs/")["Content-Security-Policy"]
 
-        assert "https://cdn.jsdelivr.net" in csp
-        assert "frame-ancestors 'none'" in csp
+        # Parsed per directive: the CDN must be allowed exactly where Swagger UI loads from, nowhere else.
+        directives = dict((part.split()[0], part.split()[1:]) for part in csp.split(";") if part.strip())
+        for directive in ("script-src", "style-src", "img-src"):
+            assert "https://cdn.jsdelivr.net" in directives[directive]
+        assert "https://cdn.jsdelivr.net" not in directives["default-src"]
+        assert directives["frame-ancestors"] == ["'none'"]
 
 
 class TestHttpsSettings:
