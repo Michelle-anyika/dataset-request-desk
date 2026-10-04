@@ -1,0 +1,92 @@
+name: Deploy
+
+# Called by CI (ci.yml) after every check has passed on a push: develop deploys to dev, main to production.
+# The production environment requires a reviewer's approval before this job starts (docs/deployment.md).
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: "dev or production"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment }}
+      url: ${{ vars.WEB_URL }}
+    concurrency:
+      group: deploy-${{ inputs.environment }}
+      cancel-in-progress: false # never stop a deploy halfway
+    env:
+      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # API: Render deploys the branch's latest commit; migrations run as the new container starts.
+      - name: Deploy the API
+        env:
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: curl --fail --silent --show-error --output /dev/null -X POST "$RENDER_DEPLOY_HOOK"
+      # Render keeps the previous version serving until the new one passes its health check, so this waits for
+      # an API that answers (a sleeping free instance takes about a minute to wake), not for the new version.
+      - name: Wait until the API answers
+        env:
+          API_URL: ${{ vars.API_URL }}
+        run: |
+          sleep 60
+          for attempt in $(seq 1 84); do
+            if curl --fail --silent --max-time 20 "$API_URL/health" > /dev/null; then
+              echo "API healthy after about $((60 + attempt * 10)) seconds."
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::The API did not become healthy in 15 minutes. Check the deploy log on Render."
+          exit 1
+
+      # Web app: built here and uploaded, with /api forwarded to this environment's API (frontend/vercel.json).
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - name: Point /api at this environment's API
+        working-directory: frontend
+        env:
+          API_URL: ${{ vars.API_URL }}
+        run: |
+          sed -i "s#__API_ORIGIN__#${API_URL%/}#" vercel.json
+          grep -q "__API_ORIGIN__" vercel.json && { echo "::error::API_URL is not set"; exit 1; } || true
+      - name: Build and deploy the web app
+        working-directory: frontend
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          PRODUCTION: ${{ inputs.environment == 'production' }}
+          WEB_URL: ${{ vars.WEB_URL }}
+        run: |
+          npm install --global vercel@62.2.0
+          if [ "$PRODUCTION" = "true" ]; then
+            vercel pull --yes --environment=production --token "$VERCEL_TOKEN"
+            vercel build --prod --token "$VERCEL_TOKEN"
+            vercel deploy --prebuilt --prod --token "$VERCEL_TOKEN"
+          else
+            vercel pull --yes --environment=preview --token "$VERCEL_TOKEN"
+            vercel build --token "$VERCEL_TOKEN"
+            url=$(vercel deploy --prebuilt --token "$VERCEL_TOKEN")
+            # A preview gets a new address each time: give dev its fixed one.
+            vercel alias set "$url" "${WEB_URL#https://}" --token "$VERCEL_TOKEN"
+          fi
+
+      - name: Smoke test
+        env:
+          WEB_URL: ${{ vars.WEB_URL }}
+        run: |
+          curl --fail --silent --show-error "$WEB_URL/" | grep -q '<div id="root">'
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' "$WEB_URL/api/auth/me/")" = 401
+          curl --fail --silent --show-error --head "$WEB_URL/" | grep -qi "content-security-policy"
+          echo "The app is served with its headers, and /api reaches this environment's API."

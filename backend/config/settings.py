@@ -13,7 +13,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 DEBUG = env_bool("DJANGO_DEBUG", default=False)
 SECRET_KEY = env_str("DJANGO_SECRET_KEY")
-ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
+ALLOWED_HOSTS = [
+    *env_list("DJANGO_ALLOWED_HOSTS", default=["localhost", "127.0.0.1"]),
+    # Render sets the service's public hostname, so the API answers on it whatever name Render gave it.
+    *env_list("RENDER_EXTERNAL_HOSTNAME", default=[]),
+]
 
 INSTALLED_APPS = [
     "django.contrib.auth",
