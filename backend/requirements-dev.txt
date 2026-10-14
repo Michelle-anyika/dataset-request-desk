@@ -163,7 +163,7 @@ cffi==2.1.1 \
     --hash=sha256:fb92203a88b3d3053034db775110081c49d28be6551923805e039924093761e4 \
     --hash=sha256:fcd22650c908d7b7da162bbfaab594a1227a15d1643a98c68b122ac642fa2264
     # via argon2-cffi-bindings
-coverage==7.16.2 \
+coverage[toml]==7.16.2 \
     --hash=sha256:00d3eb96e9988c45f50cccd1f1496571ac5c1f91386ac02c4d55516eeda19a24 \
     --hash=sha256:01c6908bc613b420c26c818fe948e1b97dfd041a53c98b01c63bd8321f5c9aae \
     --hash=sha256:066429634299e14dd2d511e1e85f8f9cecc500781f6b41907c0dd6f1baea7e63 \
@@ -303,9 +303,9 @@ django==5.2.17 \
     #   djangorestframework
     #   djangorestframework-simplejwt
     #   drf-spectacular
-djangorestframework==3.18.1 \
-    --hash=sha256:605d79fa2ec2f02905492e5ea13d903c2d842d0b4c915a57f7bf02ab9f3c91dd \
-    --hash=sha256:f1409d698967aaf82d5d98d76b549c8fba8bd92ebd0d83d24454508f72168dc2
+djangorestframework==3.18.3 \
+    --hash=sha256:446a9b352e7eff630421ab3f2328bd2401b109a9470afa4a31189994911ed030 \
+    --hash=sha256:8544bb674846731b1e3c9b309236ee1dc412905a0aa725be2ec193ca950a7d12
     # via
     #   -r requirements.in
     #   djangorestframework-simplejwt
@@ -356,7 +356,7 @@ pluggy==1.6.0 \
     # via
     #   pytest
     #   pytest-cov
-psycopg==3.3.6 \
+psycopg[binary]==3.3.6 \
     --hash=sha256:a1db9f7148b06a28606767efaca51fa6f9398c5c0a3810519be69d7000bdb631 \
     --hash=sha256:c081f2250df751a943036e42db6df4571c66cd0aabe8291a7a506512b12007d2
     # via -r requirements.in

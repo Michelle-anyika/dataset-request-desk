@@ -180,9 +180,9 @@ django==5.2.17 \
     #   djangorestframework
     #   djangorestframework-simplejwt
     #   drf-spectacular
-djangorestframework==3.18.1 \
-    --hash=sha256:605d79fa2ec2f02905492e5ea13d903c2d842d0b4c915a57f7bf02ab9f3c91dd \
-    --hash=sha256:f1409d698967aaf82d5d98d76b549c8fba8bd92ebd0d83d24454508f72168dc2
+djangorestframework==3.18.3 \
+    --hash=sha256:446a9b352e7eff630421ab3f2328bd2401b109a9470afa4a31189994911ed030 \
+    --hash=sha256:8544bb674846731b1e3c9b309236ee1dc412905a0aa725be2ec193ca950a7d12
     # via
     #   -r requirements.in
     #   djangorestframework-simplejwt
@@ -219,7 +219,7 @@ openpyxl==3.1.5 \
     --hash=sha256:5282c12b107bffeef825f4617dc029afaf41d0ea60823bbb665ef3079dc79de2 \
     --hash=sha256:cf0e3cf56142039133628b5acffe8ef0c12bc902d2aadd3e0fe5878dc08d1050
     # via -r requirements.in
-psycopg==3.3.6 \
+psycopg[binary]==3.3.6 \
     --hash=sha256:a1db9f7148b06a28606767efaca51fa6f9398c5c0a3810519be69d7000bdb631 \
     --hash=sha256:c081f2250df751a943036e42db6df4571c66cd0aabe8291a7a506512b12007d2
     # via -r requirements.in
